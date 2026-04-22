@@ -27,16 +27,16 @@
   --scrollbar:#1e3a5f;
 }
 [data-theme="light"]{
-  --bg:#f0f4ff;--bg2:#e8edf8;--bg3:#dce4f5;
-  --surface:rgba(255,255,255,0.85);--surface2:rgba(255,255,255,0.95);
-  --border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.15);
-  --text:#1e2a3a;--text2:#374151;--text3:#6b7280;--text4:#9ca3af;
-  --grid-line:rgba(100,120,200,0.06);
-  --blob1:rgba(226,201,126,0.12);--blob2:rgba(0,180,220,0.08);
-  --card-bg:rgba(255,255,255,0.9);
-  --input-bg:rgba(255,255,255,0.7);
-  --shadow:rgba(0,0,80,0.1);
-  --scrollbar:#c7d2fe;
+  --bg:#d8e4f4;--bg2:#ffffff;--bg3:#eaf0fb;
+  --surface:#ffffff;--surface2:#f1f5fd;
+  --border:rgba(30,60,140,0.13);--border2:rgba(30,60,140,0.22);
+  --text:#0f172a;--text2:#1e293b;--text3:#374151;--text4:#6b7280;
+  --grid-line:rgba(60,90,180,0.07);
+  --blob1:rgba(226,201,126,0.18);--blob2:rgba(0,180,220,0.10);
+  --card-bg:#ffffff;
+  --input-bg:#f8faff;
+  --shadow:rgba(15,30,80,0.12);
+  --scrollbar:#94a3b8;
 }
 
 /* ══════════════════════════════════
@@ -112,11 +112,23 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;
 .card-violet{border-color:rgba(167,139,250,0.18);background:rgba(167,139,250,0.03)}
 .card-amber{border-color:rgba(245,158,11,0.18);background:rgba(245,158,11,0.03)}
 .card-green{border-color:rgba(52,211,153,0.18);background:rgba(52,211,153,0.03)}
-[data-theme="light"] .card-gold{background:rgba(226,201,126,0.06)}
-[data-theme="light"] .card-cyan{background:rgba(0,212,255,0.05)}
-[data-theme="light"] .card-violet{background:rgba(167,139,250,0.06)}
-[data-theme="light"] .card-amber{background:rgba(245,158,11,0.05)}
-[data-theme="light"] .card-green{background:rgba(52,211,153,0.05)}
+[data-theme="light"] .card{box-shadow:0 2px 16px rgba(15,30,80,0.08)}
+[data-theme="light"] .card-gold{background:#fffbf0;border-color:rgba(201,146,42,0.28)}
+[data-theme="light"] .card-cyan{background:#f0faff;border-color:rgba(0,180,220,0.28)}
+[data-theme="light"] .card-violet{background:#f8f5ff;border-color:rgba(124,58,237,0.22)}
+[data-theme="light"] .card-amber{background:#fffbf0;border-color:rgba(217,119,6,0.28)}
+[data-theme="light"] .card-green{background:#f0fdf8;border-color:rgba(5,150,105,0.22)}
+[data-theme="light"] .prio-row{box-shadow:0 1px 6px rgba(15,30,80,0.06)}
+[data-theme="light"] .sched-row{box-shadow:0 1px 6px rgba(15,30,80,0.06)}
+[data-theme="light"] .quiz-card{box-shadow:0 1px 6px rgba(15,30,80,0.06)}
+[data-theme="light"] .role-pill{background:#f1f5fd;color:#374151}
+[data-theme="light"] .role-pill.active{background:#fef9ed;color:#92600a}
+[data-theme="light"] .modal-box{background:#ffffff;border-color:rgba(30,60,140,0.15)}
+[data-theme="light"] .api-banner.no-key{background:#fffbee;border-color:rgba(217,119,6,0.35)}
+[data-theme="light"] .api-banner.has-key{background:#f0fdf8;border-color:rgba(5,150,105,0.3)}
+[data-theme="light"] .demo-banner{background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(6,182,212,0.06));border-color:rgba(124,58,237,0.2)}
+[data-theme="light"] .share-bar{background:#f8faff;border-color:rgba(30,60,140,0.13)}
+[data-theme="light"] .voice-bar{background:#fff;border-color:rgba(201,146,42,0.3)}
 
 .layer-label{font-size:10px;letter-spacing:3px;font-weight:700;margin-bottom:5px}
 .section-title{font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px}
@@ -466,7 +478,9 @@ let state={
   skills:{},gaps:[],priorities:[],
   genContent:[],quiz:[],schedule:[],
   agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},
-  activeTab:0,loading:false,isDemo:false
+  activeTab:0,loading:false,isDemo:false,
+  customRoles:{},  // role name → {skills[], req[], demand{}, description, category}
+  customRoleLoading:false
 };
 
 /* ══════════════════════════════════════════
@@ -482,6 +496,9 @@ function toggleTheme(){
 (function initTheme(){
   const saved=localStorage.getItem("nexus_theme");
   if(saved)document.documentElement.setAttribute("data-theme",saved);
+  // Restore custom roles
+  const cr=localStorage.getItem("nexus_custom_roles");
+  if(cr)try{state.customRoles=JSON.parse(cr);}catch{}
 })();
 
 /* ══════════════════════════════════════════
@@ -493,13 +510,15 @@ function saveApiKey(){
   if(!val){alert("Please enter a valid API key.");return;}
   localStorage.setItem("nexus_api_key",val);
   renderApiBanner();
-  showToast("✅ API key saved! AI features are now active.","var(--green)");
+  if(state.phase===0)render(); // refresh so custom role box unlocks
+  showToast("✅ API key saved! AI features + Custom Roles now active.","var(--green)");
 }
 function clearApiKey(){
   if(!confirm("Remove saved API key?"))return;
   localStorage.removeItem("nexus_api_key");
   document.getElementById("apiKeyInput").value="";
   renderApiBanner();
+  if(state.phase===0)render();
   showToast("API key removed. Demo mode active.","var(--amber)");
 }
 function renderApiBanner(){
@@ -527,30 +546,149 @@ function renderApiBanner(){
 }
 
 /* ══════════════════════════════════════════
-   VOICE
+   CUSTOM ROLE — AI PREDICTION
 ══════════════════════════════════════════ */
-let waveInterval=null,voicePaused=false;
+async function addCustomRole(){
+  const input=document.getElementById("customRoleInput");
+  if(!input)return;
+  const roleName=input.value.trim();
+  if(!roleName){showToast("⚠️ Enter a role name first","var(--amber)");return;}
+  if(roleName.length<3){showToast("⚠️ Role name too short","var(--amber)");return;}
+  if(ROLES[roleName]||state.customRoles[roleName]){
+    showToast("⚠️ Role already exists — select it below","var(--amber)");return;
+  }
+  if(!getApiKey()){showToast("🔑 API key required for custom roles","var(--amber)");return;}
+
+  state.customRoleLoading=true;
+  render();
+
+  const prompt=`You are a career and skills expert. For the job role "${roleName}", predict exactly 6 core skills required.
+Return ONLY valid JSON (no markdown, no preamble) in this exact structure:
+{
+  "description": "One sentence describing what this role does",
+  "category": "Tech|Business|Creative|Healthcare|Finance|Legal|Education|Other",
+  "skills": ["Skill1","Skill2","Skill3","Skill4","Skill5","Skill6"],
+  "req": [8,7,9,8,7,8],
+  "demand": {"Skill1":0.90,"Skill2":0.85,"Skill3":0.92,"Skill4":0.80,"Skill5":0.75,"Skill6":0.88}
+}
+Rules:
+- skills must be specific, industry-relevant names (not generic like "Communication")
+- req values are integers 6–10 representing how critical each skill is
+- demand values 0.5–1.0 representing current market demand
+- Make skills match real industry expectations for "${roleName}" in 2025–2026`;
+
+  try{
+    const raw=await callClaude(prompt);
+    const data=parseJSON(raw);
+    if(!data||!data.skills||data.skills.length!==6){
+      showToast("⚠️ AI returned unexpected data — try again","var(--red)");
+      state.customRoleLoading=false;render();return;
+    }
+    // Store role
+    state.customRoles[roleName]={
+      skills:data.skills,req:data.req,
+      demand:data.demand||{},
+      description:data.description||"",
+      category:data.category||"Other"
+    };
+    // Merge demand into global DEMAND map
+    Object.assign(DEMAND,data.demand||{});
+    // Save to localStorage
+    localStorage.setItem("nexus_custom_roles",JSON.stringify(state.customRoles));
+    // Set as active role
+    state.role=roleName;
+    input.value="";
+    state.customRoleLoading=false;
+    initSkills();
+    render();
+    showToast(`✅ Role "${roleName}" added! Set your skill levels.`,"var(--green)");
+    speak(`New role ${roleName} has been added. I identified ${data.skills.join(", ")} as the core skills. Please rate your current levels.`,"🎯 Custom Role Added");
+  }catch(e){
+    state.customRoleLoading=false;
+    render();
+    showToast("❌ API error predicting role — check your key","var(--red)");
+  }
+}
+
+function deleteCustomRole(roleName){
+  if(!confirm(`Remove custom role "${roleName}"?`))return;
+  delete state.customRoles[roleName];
+  localStorage.setItem("nexus_custom_roles",JSON.stringify(state.customRoles));
+  if(state.role===roleName)state.role="AI Product Manager";
+  initSkills();render();
+  showToast(`Removed "${roleName}"`,"var(--text3)");
+}
+let waveInterval=null,voicePaused=false,voiceChunks=[],voiceChunkIdx=0;
+
+// Pre-load voices (Chrome loads them async)
+let _voices=[];
+function loadVoices(){
+  _voices=window.speechSynthesis.getVoices();
+  if(!_voices.length && window.speechSynthesis.onvoiceschanged!==undefined){
+    window.speechSynthesis.onvoiceschanged=()=>{_voices=window.speechSynthesis.getVoices();};
+  }
+}
+if(window.speechSynthesis){loadVoices();window.speechSynthesis.onvoiceschanged=loadVoices;}
+
+function getBestVoice(){
+  if(!_voices.length)_voices=window.speechSynthesis.getVoices();
+  // Prefer en-IN, then en-GB, then en-US, then any English
+  return _voices.find(v=>v.lang==="en-IN")
+    ||_voices.find(v=>v.lang==="en-GB")
+    ||_voices.find(v=>v.lang==="en-US"&&!v.name.includes("Google"))
+    ||_voices.find(v=>v.lang.startsWith("en"))
+    ||_voices[0]||null;
+}
+
+// Split text into chunks ≤200 chars at sentence boundaries to avoid Chrome cutoff
+function chunkText(text,max=200){
+  const sentences=text.match(/[^.!?]+[.!?]*/g)||[text];
+  const chunks=[];let cur="";
+  for(const s of sentences){
+    if((cur+s).length>max&&cur){chunks.push(cur.trim());cur=s;}
+    else cur+=s;
+  }
+  if(cur.trim())chunks.push(cur.trim());
+  return chunks;
+}
+
+function speakChunk(){
+  if(voiceChunkIdx>=voiceChunks.length){
+    document.getElementById("voiceBar").classList.add("hidden");
+    clearInterval(waveInterval);waveInterval=null;return;
+  }
+  const u=new SpeechSynthesisUtterance(voiceChunks[voiceChunkIdx]);
+  u.rate=0.95;u.pitch=1;u.volume=1;
+  const v=getBestVoice();if(v)u.voice=v;
+  u.onend=()=>{voiceChunkIdx++;speakChunk();};
+  u.onerror=(e)=>{if(e.error!=="interrupted"){voiceChunkIdx++;speakChunk();}};
+  window.speechSynthesis.speak(u);
+  // Chrome workaround: resume every 10s to prevent cutoff
+  setTimeout(()=>{if(window.speechSynthesis.speaking&&!voicePaused)window.speechSynthesis.resume();},9000);
+}
+
 function speak(text,label=""){
-  if(!window.speechSynthesis)return;
+  if(!window.speechSynthesis){showToast("⚠️ Voice not supported in this browser","var(--amber)");return;}
   stopVoice();
   document.getElementById("voiceBar").classList.remove("hidden");
   document.getElementById("voiceText").textContent=label||text.slice(0,55)+"…";
-  const u=new SpeechSynthesisUtterance(text);
-  u.rate=1;u.pitch=1;
-  u.onend=()=>{document.getElementById("voiceBar").classList.add("hidden");clearInterval(waveInterval);};
-  speechSynthesis.speak(u);
+  voiceChunks=chunkText(text);
+  voiceChunkIdx=0;
   animateWave(true);voicePaused=false;
   document.getElementById("voicePauseBtn").textContent="⏸";
+  // Small delay so browser registers user gesture
+  setTimeout(speakChunk,120);
 }
 function stopVoice(){
-  if(window.speechSynthesis)speechSynthesis.cancel();
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
+  voiceChunks=[];voiceChunkIdx=0;
   document.getElementById("voiceBar").classList.add("hidden");
   clearInterval(waveInterval);waveInterval=null;
 }
 function toggleVoicePause(){
   if(!window.speechSynthesis)return;
-  if(voicePaused){speechSynthesis.resume();voicePaused=false;document.getElementById("voicePauseBtn").textContent="⏸";animateWave(true);}
-  else{speechSynthesis.pause();voicePaused=true;document.getElementById("voicePauseBtn").textContent="▶";animateWave(false);}
+  if(voicePaused){window.speechSynthesis.resume();voicePaused=false;document.getElementById("voicePauseBtn").textContent="⏸";animateWave(true);}
+  else{window.speechSynthesis.pause();voicePaused=true;document.getElementById("voicePauseBtn").textContent="▶";animateWave(false);}
 }
 function animateWave(on){
   clearInterval(waveInterval);
@@ -591,9 +729,21 @@ function getPrio(gap,demand){
   if(s>=5.5)return"Critical";if(s>=3.5)return"High";if(s>=1.5)return"Medium";return"Low";
 }
 function initSkills(){
+  const r=ROLES[state.role]||state.customRoles[state.role];
+  if(!r)return;
   const s={};
-  ROLES[state.role].skills.forEach(sk=>{s[sk]=Math.floor(Math.random()*5)+2;});
+  r.skills.forEach(sk=>{s[sk]=Math.floor(Math.random()*5)+2;});
   state.skills=s;
+}
+// Unified role resolver
+function getRole(name){
+  if(ROLES[name])return ROLES[name];
+  if(state.customRoles[name]){
+    const cr=state.customRoles[name];
+    // map demand object → array aligned to skills
+    return{skills:cr.skills,req:cr.req,demandArr:cr.skills.map(sk=>cr.demand[sk]||0.8)};
+  }
+  return null;
 }
 function showToast(msg,color="var(--green)"){
   const t=document.createElement("div");
@@ -688,53 +838,124 @@ function exportPDF(){
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   const W=doc.internal.pageSize.getWidth();
-  let y=20;const lh=7;
-  const addLine=(text,size,color,x=15)=>{
-    doc.setFontSize(size);if(color)doc.setTextColor(...color);
-    const lines=doc.splitTextToSize(String(text||""),W-30);
-    lines.forEach(l=>{if(y>275){doc.addPage();y=20;}doc.text(l,x,y);y+=lh;});
+  let y=18;const lh=7;
+
+  const addLine=(text,size,rgb,x=16,bold=false)=>{
+    doc.setFontSize(size);
+    if(rgb)doc.setTextColor(...rgb);
+    if(bold)doc.setFont(undefined,"bold"); else doc.setFont(undefined,"normal");
+    const lines=doc.splitTextToSize(String(text||""),W-32);
+    lines.forEach(l=>{if(y>278){doc.addPage();y=18;}doc.text(l,x,y);y+=lh;});
   };
-  doc.setFillColor(7,9,15);doc.rect(0,0,W,38,"F");
-  doc.setTextColor(226,201,126);doc.setFontSize(20);doc.text("NEXUS · Talent Growth Engine",15,18);
-  doc.setFontSize(9);doc.setTextColor(100,116,139);
-  doc.text(`Role: ${state.role}   Date: ${new Date().toLocaleDateString()}   Mode: ${state.isDemo?"Demo":"AI"}   Quiz: ${state.quizScore.correct}/${state.quizScore.done}`,15,28);
-  y=48;
-  doc.setFillColor(15,25,45);doc.rect(10,y-6,W-20,10,"F");
-  addLine("SKILL GAP ANALYSIS (ML LAYER)",12,[0,212,255]);
-  state.priorities.filter(p=>p.gap>0).forEach(p=>{
-    addLine(`${p.skill}  |  ${p.current} → ${p.required}  |  ${p.priority}  |  Score: ${p.score}`,9,[190,200,220]);
+
+  const addDivider=()=>{
+    doc.setDrawColor(220,220,230);doc.setLineWidth(0.3);
+    doc.line(16,y,W-16,y);y+=5;
+  };
+
+  const sectionHeader=(title,rgb)=>{
+    y+=3;
+    doc.setFillColor(...rgb,20);
+    doc.roundedRect(14,y-5,W-28,10,2,2,"F");
+    addLine(title,11,rgb,16,true);
+    y+=2;
+  };
+
+  // ── HEADER BLOCK ──
+  doc.setFillColor(7,9,15);doc.rect(0,0,W,34,"F");
+  doc.setFont(undefined,"bold");doc.setFontSize(18);doc.setTextColor(226,201,126);
+  doc.text("NEXUS · Talent Growth Engine",16,16);
+  doc.setFont(undefined,"normal");doc.setFontSize(9);doc.setTextColor(148,163,184);
+  doc.text(`Role: ${state.role}`,16,24);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`,90,24);
+  doc.text(`Mode: ${state.isDemo?"Demo":"AI-Powered"}`,145,24);
+  doc.text(`Quiz: ${state.quizScore.done>0?state.quizScore.correct+"/"+state.quizScore.done:"N/A"}`,185,24);
+  y=44;
+
+  // ── SKILL GAPS ──
+  sectionHeader("SKILL GAP ANALYSIS  (ML Layer)",  [0,130,200]);
+  state.priorities.filter(p=>p.gap>0).forEach((p,i)=>{
+    const col=p.priority==="Critical"?[200,40,40]:p.priority==="High"?[220,100,20]:p.priority==="Medium"?[180,130,0]:[30,160,90];
+    // row bg
+    if(i%2===0){doc.setFillColor(248,250,255);doc.rect(14,y-5,W-28,8,"F");}
+    doc.setFontSize(9);doc.setFont(undefined,"bold");doc.setTextColor(30,41,59);
+    doc.text(p.skill,18,y);
+    doc.setFont(undefined,"normal");doc.setTextColor(100,116,139);
+    doc.text(`Current: ${p.current}  →  Required: ${p.required}  |  Gap: ${p.gap}  |  Demand: ${Math.round(p.demand*100)}%`,75,y);
+    // priority pill
+    doc.setFillColor(...col);doc.roundedRect(W-45,y-4,28,6,2,2,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont(undefined,"bold");
+    doc.text(p.priority,W-43,y);
+    y+=8;
   });
-  y+=4;
+  addDivider();
+
+  // ── LEARNING MODULES ──
   if(state.genContent.length){
-    doc.setFillColor(15,25,45);doc.rect(10,y-6,W-20,10,"F");
-    addLine("LEARNING MODULES (GEN AI LAYER)",12,[245,158,11]);
-    state.genContent.forEach(g=>{
-      addLine(g.skill,11,[226,201,126]);
-      addLine(g.summary||"",9,[180,180,180]);
-      (g.keyPoints||[]).forEach(kp=>addLine("• "+kp,9,[140,140,150]));
-      if(g.proTip)addLine("Tip: "+g.proTip,9,[200,180,100]);
-      y+=2;
+    sectionHeader("PERSONALISED LEARNING MODULES  (Gen AI Layer)",[180,100,10]);
+    state.genContent.forEach((g,i)=>{
+      addLine(`${i+1}. ${g.skill}`,11,[30,41,59],16,true);
+      addLine(g.summary||"",9,[71,85,105]);
+      if(g.keyPoints?.length){
+        y+=1;
+        g.keyPoints.forEach(kp=>addLine(`  • ${kp}`,8,[100,116,139]));
+      }
+      if(g.proTip){
+        y+=1;
+        doc.setFillColor(255,251,235);doc.roundedRect(14,y-4,W-28,10,2,2,"F");
+        addLine(`💡 Pro Tip: ${g.proTip}`,8,[146,100,20],18);
+      }
+      if(g.resources?.length){
+        addLine(`Resources: ${g.resources.map(r=>r.title).join(" · ")}`,8,[107,114,128]);
+      }
+      y+=3;
     });
+    addDivider();
   }
-  y+=4;
+
+  // ── SCHEDULE ──
   if(state.schedule.length){
-    doc.setFillColor(15,25,45);doc.rect(10,y-6,W-20,10,"F");
-    addLine("AGENT LEARNING SCHEDULE",12,[52,211,153]);
-    state.schedule.forEach(s=>{
-      addLine(`${s.week}: ${s.skill} — ${s.hours}h/week`,9,[190,200,220]);
-      addLine(`Goal: ${s.milestone}`,9,[140,150,160]);
+    sectionHeader("AGENT LEARNING SCHEDULE  (Agentic Layer)",[20,140,100]);
+    state.schedule.forEach((s,i)=>{
+      if(i%2===0){doc.setFillColor(240,255,248);doc.rect(14,y-5,W-28,8,"F");}
+      doc.setFontSize(9);doc.setFont(undefined,"bold");doc.setTextColor(30,41,59);
+      doc.text(`${s.week}: ${s.skill}`,18,y);
+      doc.setFont(undefined,"normal");doc.setTextColor(107,114,128);
+      doc.text(`${s.hours}h/week  ·  ${s.sessions.join(", ")}`,90,y);
+      y+=8;
+      addLine(`  Goal: ${s.milestone}`,8,[100,116,139]);
       y+=2;
     });
+    addDivider();
   }
+
+  // ── QUIZ ──
   if(state.quizScore.done>0){
-    y+=4;
-    const pct=state.quizScore.correct/state.quizScore.done;
-    addLine(`QUIZ RESULT: ${state.quizScore.correct}/${state.quizScore.done} (${Math.round(pct*100)}%)`,11,[pct>=.7?52:239,pct>=.7?211:68,pct>=.7?153:68]);
+    y+=2;
+    const pct=Math.round(state.quizScore.correct/state.quizScore.done*100);
+    const scoreCol=pct>=70?[20,140,100]:[180,80,20];
+    doc.setFillColor(...scoreCol,15);doc.roundedRect(14,y-5,W-28,12,3,3,"F");
+    doc.setFontSize(11);doc.setFont(undefined,"bold");doc.setTextColor(...scoreCol);
+    doc.text(`QUIZ RESULT: ${state.quizScore.correct}/${state.quizScore.done}  (${pct}%)  ${pct>=70?"✓ PASS":"✗ Needs Work"}`,18,y+2);
+    y+=14;
   }
-  if(state.isDemo)addLine("Note: This report was generated in DEMO mode. Add your Claude API key for a fully personalised AI plan.",9,[167,139,250]);
-  doc.setFontSize(8);doc.setTextColor(60,70,90);
-  doc.text("Generated by NEXUS Quad-Intelligence Platform · Powered by Claude AI",15,285);
-  doc.save(`nexus_${state.role.replace(/\s+/g,"_")}_${Date.now()}.pdf`);
+
+  // ── DEMO NOTE ──
+  if(state.isDemo){
+    y+=2;
+    doc.setFillColor(248,245,255);doc.roundedRect(14,y-5,W-28,14,3,3,"F");
+    doc.setFontSize(8);doc.setFont(undefined,"normal");doc.setTextColor(100,70,180);
+    const note=doc.splitTextToSize("Note: This report was generated in DEMO mode using sample data. Add your Claude API key for a fully personalised AI-powered learning plan tailored to your exact skill levels.",W-36);
+    note.forEach(l=>{doc.text(l,18,y);y+=6;});
+    y+=4;
+  }
+
+  // ── FOOTER ──
+  doc.setFontSize(7.5);doc.setFont(undefined,"normal");doc.setTextColor(150,160,180);
+  doc.text("Generated by NEXUS Quad-Intelligence Platform · Powered by Claude AI · nexus.ai",16,287);
+
+  doc.save(`NEXUS_${state.role.replace(/\s+/g,"_")}_LearningPlan_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast("📄 PDF downloaded!","var(--green)");
 }
 
 /* ══════════════════════════════════════════
@@ -773,6 +994,10 @@ function render(){
 
 /* ── INPUT PHASE ── */
 function renderInput(){
+  const hasKey=!!getApiKey();
+  const customRoleNames=Object.keys(state.customRoles);
+  const allRoles=[...Object.keys(ROLES),...customRoleNames];
+
   return`<div class="fade-up">
     <!-- DEMO BANNER -->
     <div class="demo-banner">
@@ -789,13 +1014,68 @@ function renderInput(){
       <div class="section-title">Build Your Skill Profile</div>
       <div class="section-desc">Select your target role and rate your current skills honestly. The ML engine computes gap scores weighted by live market demand.</div>
 
+      <!-- BUILT-IN ROLES -->
       <div style="font-size:11px;color:var(--text2);font-weight:600;letter-spacing:1px;margin-bottom:10px">TARGET ROLE</div>
       <div class="role-grid">
         ${Object.keys(ROLES).map(r=>`<button class="role-pill${r===state.role?" active":""}" data-role="${r}">${r}</button>`).join("")}
       </div>
 
-      <div style="font-size:11px;color:var(--text2);font-weight:600;letter-spacing:1px;margin-bottom:14px">CURRENT SKILL LEVELS (1–10)</div>
-      ${ROLES[state.role].skills.map(sk=>`
+      <!-- CUSTOM ROLES -->
+      ${customRoleNames.length?`
+      <div style="font-size:11px;color:var(--violet);font-weight:600;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span>✦ AI-PREDICTED CUSTOM ROLES</span>
+        <span style="font-size:10px;font-weight:400;color:var(--text3)">(${customRoleNames.length} added)</span>
+      </div>
+      <div class="role-grid" style="margin-bottom:22px">
+        ${customRoleNames.map(r=>`
+          <div style="display:flex;align-items:center;gap:0">
+            <button class="role-pill${r===state.role?" active":""}" data-role="${r}" style="border-right:none;border-radius:30px 0 0 30px;${r===state.role?"border-color:rgba(167,139,250,0.5);background:rgba(167,139,250,0.12);color:var(--violet)":""}">
+              ✦ ${r}
+            </button>
+            <button onclick="deleteCustomRole('${r.replace(/'/g,"\\'")}');" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:0 30px 30px 0;padding:8px 10px;cursor:pointer;color:#ef4444;font-size:11px;transition:all .2s" title="Remove role">✕</button>
+          </div>`).join("")}
+      </div>`:""}
+
+      <!-- ADD CUSTOM ROLE BOX -->
+      <div style="border:1px solid ${hasKey?"rgba(167,139,250,0.25)":"rgba(255,255,255,0.07)"};border-radius:14px;padding:18px;background:${hasKey?"rgba(167,139,250,0.04)":"rgba(255,255,255,0.02)"}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:14px">${hasKey?"✦":"🔒"}</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:${hasKey?"var(--violet)":"var(--text4)"};letter-spacing:.5px">
+              ${hasKey?"ADD CUSTOM ROLE  ·  AI-POWERED PREDICTION":"CUSTOM ROLE PREDICTION  ·  REQUIRES API KEY"}
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">
+              ${hasKey?"Type any job role — Claude AI will predict the 6 core skills, proficiency requirements & market demand scores instantly.":"Add your Claude API key above to unlock AI-powered custom role prediction for any job title worldwide."}
+            </div>
+          </div>
+        </div>
+        ${hasKey?`
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <input id="customRoleInput" type="text" placeholder="e.g. Blockchain Developer, UX Researcher, Quantum Engineer…"
+              style="flex:1;min-width:200px;background:var(--input-bg);border:1px solid rgba(167,139,250,0.3);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);outline:none;font-family:'DM Sans',sans-serif;transition:border-color .2s"
+              onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='rgba(167,139,250,0.3)'"
+              onkeydown="if(event.key==='Enter')addCustomRole()"/>
+            <button class="btn" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;padding:10px 20px;font-size:12px;border-radius:10px;flex-shrink:0" onclick="addCustomRole()">
+              ${state.customRoleLoading
+                ?'<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite"></span> Predicting…'
+                :'✦ AI Predict Skills'}
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--text4);margin-top:8px">💡 Examples: Prompt Engineer · DevRel Manager · AI Safety Researcher · Robotics Engineer · Climate Tech Analyst</div>
+        `:`
+          <div style="display:flex;gap:10px;flex-wrap:wrap;opacity:.5">
+            <input type="text" disabled placeholder="Enter API key above to unlock…"
+              style="flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text4);cursor:not-allowed;font-family:'DM Sans',sans-serif"/>
+            <button disabled style="background:rgba(167,139,250,0.2);color:var(--text4);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:12px;cursor:not-allowed;font-family:'DM Sans',sans-serif;font-weight:700">
+              🔒 Requires API Key
+            </button>
+          </div>
+        `}
+      </div>
+
+      <!-- SKILL SLIDERS -->
+      <div style="font-size:11px;color:var(--text2);font-weight:600;letter-spacing:1px;margin-bottom:14px;margin-top:22px">CURRENT SKILL LEVELS (1–10)</div>
+      ${(getRole(state.role)||ROLES["AI Product Manager"]).skills.map(sk=>`
         <div class="skill-row">
           <div class="skill-row-head">
             <span class="skill-name">${sk}</span>
@@ -806,6 +1086,14 @@ function renderInput(){
             <input type="range" min="1" max="10" value="${state.skills[sk]||1}" data-skill="${sk}" class="skill-input"/>
           </div>
         </div>`).join("")}
+
+      <!-- CUSTOM ROLE DESCRIPTION -->
+      ${state.customRoles[state.role]?`
+        <div style="margin-top:4px;padding:12px 16px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.18);border-radius:12px">
+          <span style="font-size:10px;font-weight:700;color:var(--violet);letter-spacing:2px">✦ AI ROLE INSIGHT  </span>
+          <span style="font-size:13px;color:var(--text2)">${state.customRoles[state.role].description}</span>
+          <span style="display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(167,139,250,0.12);color:var(--violet);border:1px solid rgba(167,139,250,0.25);margin-left:8px">${state.customRoles[state.role].category}</span>
+        </div>`:""}
     </div>
 
     <button class="btn btn-gold btn-full glow-anim" onclick="runML()">
@@ -893,7 +1181,7 @@ function renderResults(){
         </div>
         <div style="display:flex;gap:7px;flex-wrap:wrap">
           <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="narrateModule(${state.activeTab})">🔊 Narrate</button>
-          <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="exportPDF()">📄 PDF</button>
+          <button class="btn btn-gold" style="padding:7px 16px;font-size:11px;border-radius:30px;font-weight:800" onclick="exportPDF()">📄 Export PDF</button>
         </div>
       </div>
 
@@ -974,7 +1262,9 @@ function renderResults(){
 
     <!-- ACTION ROW -->
     <div class="btn-row">
-      <button class="btn btn-gold" onclick="exportPDF()">📄 PDF Report</button>
+      <button class="btn btn-gold" style="padding:16px 32px;font-size:14px;font-weight:800;letter-spacing:.8px;border-radius:14px;box-shadow:0 4px 24px rgba(226,201,126,0.4)" onclick="exportPDF()">
+        📄 Export PDF Report
+      </button>
       <button class="btn btn-green" onclick="openModal('progressModal');renderProgress()">📊 Progress</button>
       <button class="btn btn-ghost" onclick="resetAll()">↺ New Assessment</button>
     </div>
@@ -1027,11 +1317,13 @@ function loadDemoProfile(){
    ACTIONS
 ══════════════════════════════════════════ */
 async function runML(demo=false){
-  const r=ROLES[state.role];
-  state.gaps=r.skills.map((sk,i)=>({
-    skill:sk,current:state.skills[sk]||1,required:r.req[i],
-    gap:clamp(r.req[i]-(state.skills[sk]||1),0,10),demand:DEMAND[sk]||0.8
-  }));
+  const r=getRole(state.role);
+  if(!r){showToast("⚠️ Role data missing","var(--red)");return;}
+  state.gaps=r.skills.map((sk,i)=>{
+    const demand=r.demandArr?r.demandArr[i]:(DEMAND[sk]||0.8);
+    return{skill:sk,current:state.skills[sk]||1,required:r.req[i],
+      gap:clamp(r.req[i]-(state.skills[sk]||1),0,10),demand};
+  });
   state.phase=1;render();
   await sleep(200);
   state.gaps.forEach((_,i)=>{
@@ -1133,7 +1425,8 @@ function answerQuiz(qi,oi){
 function switchTab(i){state.activeTab=i;render();}
 function resetAll(){
   stopVoice();
-  state={phase:0,role:state.role,skills:{},gaps:[],priorities:[],genContent:[],quiz:[],schedule:[],agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},activeTab:0,loading:false,isDemo:false};
+  const cr=state.customRoles;
+  state={phase:0,role:state.role,skills:{},gaps:[],priorities:[],genContent:[],quiz:[],schedule:[],agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},activeTab:0,loading:false,isDemo:false,customRoles:cr,customRoleLoading:false};
   render();
 }
 

@@ -236,13 +236,6 @@ input[type=range]{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer;
 .btn-full{width:100%}
 
 /* ══════════════════════════════════
-   VOICE BAR
-══════════════════════════════════ */
-.voice-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid rgba(226,201,126,0.25);border-radius:50px;padding:10px 20px;display:flex;align-items:center;gap:14px;z-index:200;box-shadow:0 8px 40px var(--shadow);min-width:300px}
-.voice-wave{display:flex;gap:3px;align-items:center;height:20px}
-.wave-bar{width:3px;border-radius:3px;background:var(--gold);transition:height .15s}
-
-/* ══════════════════════════════════
    LOADING
 ══════════════════════════════════ */
 .loading-ring{width:56px;height:56px;border-radius:50%;border:2px solid rgba(245,158,11,.15);border-top:2px solid var(--amber);animation:spin 1s linear infinite;margin:0 auto 20px}
@@ -270,22 +263,7 @@ input[type=range]{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer;
 <div class="blob blob1"></div>
 <div class="blob blob2"></div>
 
-<!-- ── VOICE BAR ── -->
-<div class="voice-bar hidden" id="voiceBar">
-  <button onclick="stopVoice()" style="background:none;border:none;color:#ef4444;font-size:15px;cursor:pointer;flex-shrink:0" title="Stop">■</button>
-  <div class="voice-wave">
-    <div class="wave-bar" id="w1" style="height:6px"></div>
-    <div class="wave-bar" id="w2" style="height:14px"></div>
-    <div class="wave-bar" id="w3" style="height:9px"></div>
-    <div class="wave-bar" id="w4" style="height:18px"></div>
-    <div class="wave-bar" id="w5" style="height:7px"></div>
-    <div class="wave-bar" id="w6" style="height:15px"></div>
-    <div class="wave-bar" id="w7" style="height:5px"></div>
-  </div>
-  <div style="flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="voiceText">Narrating…</div>
-  <!-- onclick=tapToPlay() — MUST stay as direct onclick, not addEventListener, so it counts as user gesture on mobile -->
-  <button onclick="tapToPlay()" id="voicePauseBtn" style="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">⏸</button>
-</div>
+
 
 <!-- ── PROGRESS MODAL ── -->
 <div class="modal-overlay" id="progressModal">
@@ -480,7 +458,9 @@ let state={
   genContent:[],quiz:[],schedule:[],
   agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},
   activeTab:0,loading:false,isDemo:false,
-  customRoles:{},  // role name → {skills[], req[], demand{}, description, category}
+  checklist:{},     // key: "moduleIdx_pointIdx" → true/false
+  sessionsDone:{},  // key: "weekIdx_sessIdx" → true/false
+  customRoles:{},
   customRoleLoading:false
 };
 
@@ -603,7 +583,6 @@ Rules:
     initSkills();
     render();
     showToast(`✅ Role "${roleName}" added! Set your skill levels.`,"var(--green)");
-    speak(`New role ${roleName} has been added. I identified ${data.skills.join(", ")} as the core skills. Please rate your current levels.`,"🎯 Custom Role Added");
   }catch(e){
     state.customRoleLoading=false;
     render();
@@ -619,117 +598,6 @@ function deleteCustomRole(roleName){
   initSkills();render();
   showToast(`Removed "${roleName}"`,"var(--text3)");
 }
-/* ══════════════════════════════════════════
-   VOICE — gesture-safe, mobile-compatible
-   WHY: Mobile browsers (Chrome/Safari) block
-   speechSynthesis.speak() from async/setTimeout
-   context. It MUST be called from a direct user
-   tap event. So we queue the text and show a
-   ▶ TAP TO PLAY button — speech only fires on
-   the user's own tap gesture.
-══════════════════════════════════════════ */
-let waveInterval=null,voicePaused=false;
-let voiceChunks=[],voiceChunkIdx=0;
-let pendingSpeech=null;  // queued text waiting for user tap
-let _voices=[];
-
-function _loadVoices(){if(window.speechSynthesis)_voices=speechSynthesis.getVoices();}
-if(window.speechSynthesis){_loadVoices();speechSynthesis.onvoiceschanged=_loadVoices;}
-
-function _bestVoice(){
-  if(!_voices.length)_voices=speechSynthesis.getVoices();
-  return _voices.find(v=>v.lang==="en-IN")
-    ||_voices.find(v=>v.lang==="en-GB")
-    ||_voices.find(v=>v.lang.startsWith("en-US"))
-    ||_voices.find(v=>v.lang.startsWith("en"))
-    ||_voices[0]||null;
-}
-
-function _chunk(text,max=160){
-  const sents=text.match(/[^.!?]+[.!?]*/g)||[text];
-  const out=[];let cur="";
-  for(const s of sents){
-    if(cur&&(cur+s).length>max){out.push(cur.trim());cur=s;}else cur+=s;
-  }
-  if(cur.trim())out.push(cur.trim());
-  return out.filter(Boolean);
-}
-
-/* Called recursively from onend — stays in browser speech queue */
-function _nextChunk(){
-  if(voiceChunkIdx>=voiceChunks.length){_voiceDone();return;}
-  const u=new SpeechSynthesisUtterance(voiceChunks[voiceChunkIdx]);
-  u.rate=0.93;u.pitch=1;u.volume=1;
-  const v=_bestVoice();if(v)u.voice=v;
-  u.onstart=()=>animateWave(true);
-  u.onend=()=>{voiceChunkIdx++;_nextChunk();};
-  u.onerror=(e)=>{if(e.error!=="interrupted"){voiceChunkIdx++;_nextChunk();}};
-  speechSynthesis.speak(u);
-  setTimeout(()=>{if(speechSynthesis.speaking&&!voicePaused)speechSynthesis.resume();},9200);
-}
-function _voiceDone(){
-  animateWave(false);
-  document.getElementById("voiceBar").classList.add("hidden");
-  pendingSpeech=null;
-}
-
-/* ── speak() — queue text, show TAP TO PLAY bar ── */
-function speak(text,label=""){
-  if(!window.speechSynthesis){showToast("⚠️ Voice not supported","var(--amber)");return;}
-  stopVoice();
-  pendingSpeech={text,label:label||text.slice(0,50)+"…"};
-  voiceChunks=_chunk(text);
-  voiceChunkIdx=0;voicePaused=false;
-  const bar=document.getElementById("voiceBar");
-  bar.classList.remove("hidden");
-  document.getElementById("voiceText").textContent="🔊 "+pendingSpeech.label;
-  /* Style play button as a gold pill — clear CTA */
-  const btn=document.getElementById("voicePauseBtn");
-  btn.textContent="▶ TAP TO PLAY";
-  btn.style.cssText="background:linear-gradient(135deg,#e2c97e,#c9922a);border:none;color:#07090f;font-size:11px;font-weight:800;padding:6px 14px;border-radius:20px;cursor:pointer;letter-spacing:.5px;white-space:nowrap";
-  animateWave(false);
-}
-
-/* ── tapToPlay — MUST be in direct onclick handler ── */
-function tapToPlay(){
-  if(!window.speechSynthesis)return;
-  const btn=document.getElementById("voicePauseBtn");
-  if(pendingSpeech){
-    /* First play — direct user gesture → works on mobile */
-    pendingSpeech=null;
-    btn.textContent="⏸";
-    btn.style.cssText="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;padding:0 2px";
-    _nextChunk();
-    return;
-  }
-  if(speechSynthesis.speaking&&!voicePaused){
-    speechSynthesis.pause();voicePaused=true;animateWave(false);
-    btn.textContent="▶";
-    btn.style.cssText="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;padding:0 2px";
-  } else if(voicePaused){
-    speechSynthesis.resume();voicePaused=false;animateWave(true);
-    btn.textContent="⏸";
-    btn.style.cssText="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;padding:0 2px";
-  }
-}
-/* alias for legacy calls */
-function toggleVoicePause(){tapToPlay();}
-
-function stopVoice(){
-  if(window.speechSynthesis)speechSynthesis.cancel();
-  voiceChunks=[];voiceChunkIdx=0;pendingSpeech=null;voicePaused=false;
-  animateWave(false);
-  document.getElementById("voiceBar").classList.add("hidden");
-}
-function animateWave(on){
-  clearInterval(waveInterval);waveInterval=null;
-  const ids=["w1","w2","w3","w4","w5","w6","w7"];
-  if(!on){ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.height="4px";});return;}
-  waveInterval=setInterval(()=>{
-    ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.height=Math.floor(Math.random()*16+4)+"px";});
-  },120);
-}
-
 /* ══════════════════════════════════════════
    CLAUDE API
 ══════════════════════════════════════════ */
@@ -822,10 +690,44 @@ function copyShareText(){
 }
 
 /* ══════════════════════════════════════════
+   PROGRESS CALCULATION
+   Real metric = (ticked checklist items + correct quiz answers)
+                 / (total key points + total quiz questions)
+══════════════════════════════════════════ */
+function calcProgress(){
+  const totalPoints=state.genContent.reduce((a,g)=>a+(g.keyPoints?.length||0),0);
+  const totalQuiz=state.quiz.length;
+  const total=totalPoints+totalQuiz;
+  if(!total)return{pct:0,checked:0,totalPoints,correctQuiz:state.quizScore.correct,totalQuiz};
+  const checked=Object.values(state.checklist).filter(Boolean).length;
+  const pct=Math.round((checked+state.quizScore.correct)/total*100);
+  return{pct:Math.min(pct,100),checked,totalPoints,correctQuiz:state.quizScore.correct,totalQuiz};
+}
+
+function toggleChecklist(key){
+  state.checklist[key]=!state.checklist[key];
+  saveProgress();render();
+}
+function toggleSession(key){
+  state.sessionsDone[key]=!state.sessionsDone[key];
+  saveProgress();render();
+}
+
+/* ══════════════════════════════════════════
    LOCALSTORAGE PROGRESS
 ══════════════════════════════════════════ */
 function saveProgress(){
-  const data={role:state.role,timestamp:Date.now(),priorities:state.priorities,quizScore:state.quizScore,schedule:state.schedule,isDemo:state.isDemo};
+  const prog=calcProgress();
+  const data={
+    role:state.role,timestamp:Date.now(),
+    priorities:state.priorities,
+    quizScore:state.quizScore,
+    schedule:state.schedule,
+    checklist:state.checklist,
+    sessionsDone:state.sessionsDone,
+    progress:prog,
+    isDemo:state.isDemo
+  };
   const hist=JSON.parse(localStorage.getItem("nexus_progress")||"[]");
   const idx=hist.findIndex(h=>h.role===state.role);
   if(idx>=0)hist[idx]=data;else hist.push(data);
@@ -836,27 +738,61 @@ function clearProgress(){if(confirm("Clear all saved progress?"))localStorage.re
 function renderProgress(){
   const hist=loadProgress();
   const el=document.getElementById("progressContent");
-  if(!hist.length){el.innerHTML='<p style="color:var(--text3);font-size:13px;padding:16px 0">No saved progress yet.</p>';return;}
+  if(!hist.length){
+    el.innerHTML=`<div style="text-align:center;padding:24px 0">
+      <div style="font-size:32px;margin-bottom:12px">📭</div>
+      <div style="font-size:13px;color:var(--text3)">No saved assessments yet.</div>
+      <div style="font-size:12px;color:var(--text4);margin-top:4px">Complete an assessment and the progress bar will track your real learning activity.</div>
+    </div>`;
+    return;
+  }
   el.innerHTML=hist.map(h=>{
     const date=new Date(h.timestamp).toLocaleDateString();
+    const prog=h.progress||{pct:0,checked:0,totalPoints:0,correctQuiz:0,totalQuiz:0};
     const top=(h.priorities||[]).filter(p=>p.gap>0).slice(0,3);
-    const score=h.quizScore?.done>0?`Quiz: ${h.quizScore.correct}/${h.quizScore.done}`:"";
-    return`<div class="progress-skill">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">${h.role}${h.isDemo?' <span style="font-size:10px;color:var(--violet);font-weight:700">[DEMO]</span>':''}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${date} ${score?'· <span style="color:var(--green)">'+score+'</span>':''}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:7px">
-          ${top.map(p=>`<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${PRIO_COLS[p.priority]}15;color:${PRIO_COLS[p.priority]};border:1px solid ${PRIO_COLS[p.priority]}30">${p.skill}</span>`).join("")}
+    const barCol=prog.pct>=80?"#34d399":prog.pct>=50?"#f59e0b":"#a78bfa";
+    // Session completion
+    const totalSess=(h.schedule||[]).reduce((a,s)=>a+(s.sessions?.length||0),0);
+    const doneSess=Object.values(h.sessionsDone||{}).filter(Boolean).length;
+    return`<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px">
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${h.role}${h.isDemo?'<span style="font-size:10px;color:var(--violet);font-weight:700;margin-left:6px">[DEMO]</span>':''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Last updated: ${date}</div>
+        </div>
+        <div style="font-size:26px;font-weight:800;color:${barCol};font-family:'DM Mono',monospace">${prog.pct}%</div>
+      </div>
+
+      <!-- Master progress bar -->
+      <div style="margin-bottom:4px;display:flex;justify-content:space-between">
+        <span style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.5px">OVERALL LEARNING PROGRESS</span>
+        <span style="font-size:11px;color:var(--text4)">${prog.checked+prog.correctQuiz} / ${prog.totalPoints+prog.totalQuiz} tasks</span>
+      </div>
+      <div class="progress-bar-wrap" style="height:12px;margin-bottom:16px">
+        <div class="progress-bar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,${barCol},${barCol}cc)"></div>
+      </div>
+
+      <!-- 3 sub-metrics -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        <div style="text-align:center;background:var(--surface2);border-radius:12px;padding:10px 6px">
+          <div style="font-size:18px;font-weight:800;color:var(--amber)">${prog.checked}<span style="font-size:11px;color:var(--text3)">/${prog.totalPoints}</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;font-weight:600">Key Points<br>Completed</div>
+        </div>
+        <div style="text-align:center;background:var(--surface2);border-radius:12px;padding:10px 6px">
+          <div style="font-size:18px;font-weight:800;color:${prog.correctQuiz/Math.max(prog.totalQuiz,1)>=.7?"var(--green)":"var(--amber)"}">${prog.correctQuiz}<span style="font-size:11px;color:var(--text3)">/${prog.totalQuiz}</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;font-weight:600">Quiz<br>Correct</div>
+        </div>
+        <div style="text-align:center;background:var(--surface2);border-radius:12px;padding:10px 6px">
+          <div style="font-size:18px;font-weight:800;color:var(--green)">${doneSess}<span style="font-size:11px;color:var(--text3)">/${totalSess}</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;font-weight:600">Sessions<br>Done</div>
         </div>
       </div>
-      <div>${top.map(p=>{
-        const pct=clamp(p.current/p.required*100,0,100);
-        return`<div style="margin-bottom:8px;min-width:110px">
-          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">${p.skill}</div>
-          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%;background:${PRIO_COLS[p.priority]}"></div></div>
-          <div style="font-size:9px;color:var(--text3);text-align:right">${Math.round(pct)}%</div>
-        </div>`;
-      }).join("")}</div>
+
+      <!-- Top priority skills -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${top.map(p=>`<span style="font-size:11px;padding:3px 10px;border-radius:10px;background:${PRIO_COLS[p.priority]}15;color:${PRIO_COLS[p.priority]};border:1px solid ${PRIO_COLS[p.priority]}30;font-weight:600">${p.skill} · ${p.priority}</span>`).join("")}
+      </div>
     </div>`;
   }).join("");
 }
@@ -1200,82 +1136,143 @@ function renderLoading(){
 /* ── RESULTS ── */
 function renderResults(){
   const gc=state.genContent[state.activeTab];
+  const prog=calcProgress();
+  const barCol=prog.pct>=80?"#34d399":prog.pct>=50?"#f59e0b":"#a78bfa";
+
   return`<div class="fade-up">
 
-    <!-- GEN AI MODULES -->
+    <!-- LIVE PROGRESS BANNER -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:10px;letter-spacing:3px;font-weight:700;color:${barCol};margin-bottom:2px">YOUR LEARNING PROGRESS</div>
+          <div style="font-size:12px;color:var(--text3)">
+            Tick key points below + answer quiz questions to advance
+          </div>
+        </div>
+        <div style="font-size:32px;font-weight:800;color:${barCol};font-family:'DM Mono',monospace;line-height:1">${prog.pct}%</div>
+      </div>
+      <div class="progress-bar-wrap" style="height:10px;margin-bottom:10px">
+        <div class="progress-bar-fill" style="width:${prog.pct}%;background:linear-gradient(90deg,${barCol},${barCol}bb);transition:width 0.6s ease"></div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text3)">📋 <strong style="color:var(--amber)">${prog.checked}/${prog.totalPoints}</strong> key points ticked</span>
+        <span style="font-size:12px;color:var(--text3)">✅ <strong style="color:${prog.correctQuiz/Math.max(prog.totalQuiz,1)>=.7?"var(--green)":"var(--amber)"}">${prog.correctQuiz}/${prog.totalQuiz}</strong> quiz correct</span>
+        <span style="font-size:12px;color:var(--text3)">📅 <strong style="color:var(--green)">${Object.values(state.sessionsDone).filter(Boolean).length}/${state.schedule.reduce((a,s)=>a+(s.sessions?.length||0),0)}</strong> sessions done</span>
+      </div>
+    </div>
+
+    <!-- GEN AI MODULES with CHECKLIST -->
     <div class="card card-amber">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
         <div>
-          <div class="layer-label" style="color:var(--amber)">◇ GEN AI · PERSONALISED LEARNING MODULES${state.isDemo?' <span style="color:var(--violet)">[DEMO DATA]</span>':''}</div>
-          <div class="section-title" style="font-size:16px">Your Learning Content</div>
+          <div class="layer-label" style="color:var(--amber)">◇ GEN AI · LEARNING MODULES${state.isDemo?' <span style="color:var(--violet)">[DEMO]</span>':''}</div>
+          <div class="section-title" style="font-size:16px">Study Material</div>
         </div>
-        <div style="display:flex;gap:7px;flex-wrap:wrap">
-          <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="narrateModule(${state.activeTab})">🔊 Narrate</button>
-          <button class="btn btn-gold" style="padding:7px 16px;font-size:11px;border-radius:30px;font-weight:800" onclick="exportPDF()">📄 Export PDF</button>
-        </div>
+        <button class="btn btn-gold" style="padding:7px 16px;font-size:11px;border-radius:30px;font-weight:800" onclick="exportPDF()">📄 Export PDF</button>
       </div>
 
       ${state.isDemo?`<div class="sample-note">
         <span>💡</span>
-        <span>This is <strong>sample content</strong> for demonstration. Add your <strong>Claude API key</strong> above and click <em>Reset</em> to generate a fully personalised AI learning plan tailored exactly to your skill levels and chosen role.</span>
+        <span>Sample content for demo. Add your <strong>Claude API key</strong> and reset for a fully personalised AI plan.</span>
       </div>`:""}
 
       <div class="tabs">
-        ${state.genContent.map((g,i)=>`<div class="tab${i===state.activeTab?" active":""}" onclick="switchTab(${i})">${g.skill}</div>`).join("")}
+        ${state.genContent.map((g,i)=>{
+          const tabPoints=g.keyPoints?.length||0;
+          const tabDone=g.keyPoints?.filter((_,ki)=>state.checklist[`${i}_${ki}`]).length||0;
+          return`<div class="tab${i===state.activeTab?" active":""}" onclick="switchTab(${i})" style="position:relative">
+            ${g.skill}
+            <span style="margin-left:6px;font-size:10px;font-weight:700;color:${tabDone===tabPoints&&tabPoints>0?"var(--green)":"inherit"}">${tabDone}/${tabPoints}</span>
+          </div>`;
+        }).join("")}
       </div>
 
       ${gc?`
-        <div style="font-size:14px;color:var(--text);line-height:1.75;margin-bottom:16px">${gc.summary||""}</div>
-        <div class="key-grid">
-          ${(gc.keyPoints||[]).map(kp=>`<div class="key-item">
-            <span style="color:var(--amber);flex-shrink:0;margin-top:2px">▸</span>
-            <span style="font-size:12px;color:var(--text2);line-height:1.5">${kp}</span>
-          </div>`).join("")}
+        <!-- Summary -->
+        <div style="font-size:14px;color:var(--text);line-height:1.75;margin-bottom:18px;padding:14px 16px;background:var(--surface2);border-radius:12px;border-left:3px solid var(--amber)">
+          ${gc.summary||""}
         </div>
-        ${gc.proTip?`<div class="pro-tip">
+
+        <!-- KEY POINTS CHECKLIST -->
+        <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;margin-bottom:10px">KEY LEARNING POINTS · TICK EACH AS YOU STUDY</div>
+        <div style="margin-bottom:16px">
+          ${(gc.keyPoints||[]).map((kp,ki)=>{
+            const key=`${state.activeTab}_${ki}`;
+            const done=!!state.checklist[key];
+            return`<div onclick="toggleChecklist('${key}')" style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;margin-bottom:8px;cursor:pointer;background:${done?"rgba(52,211,153,0.07)":"var(--surface2)"};border:1px solid ${done?"rgba(52,211,153,0.25)":"var(--border)"};transition:all .2s">
+              <div style="width:20px;height:20px;border-radius:6px;border:2px solid ${done?"var(--green)":"var(--border2)"};background:${done?"var(--green)":"transparent"};flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .2s">
+                ${done?'<span style="color:#07090f;font-size:12px;font-weight:900">✓</span>':''}
+              </div>
+              <span style="font-size:13px;color:${done?"var(--text3)":"var(--text2)"};line-height:1.5;text-decoration:${done?"line-through":"none"};transition:all .2s">${kp}</span>
+            </div>`;
+          }).join("")}
+        </div>
+
+        <!-- PRO TIP -->
+        ${gc.proTip?`<div class="pro-tip" style="margin-bottom:14px">
           <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:2px">💡 PRO TIP  </span>
           <span style="font-size:13px;color:var(--text2)">${gc.proTip}</span>
         </div>`:""}
+
+        <!-- RESOURCES -->
+        ${gc.resources?.length?`
+        <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;margin-bottom:8px">RECOMMENDED RESOURCES</div>
         <div class="res-chips">
-          ${(gc.resources||[]).map(r=>`<div class="res-chip"><span style="color:var(--amber)">${r.type} </span>${r.title}</div>`).join("")}
+          ${gc.resources.map(r=>`<div class="res-chip">
+            <span style="color:var(--amber);font-weight:700">${r.type} · </span>${r.title}
+          </div>`).join("")}
         </div>`:""}
+      `:""}
     </div>
 
     <!-- QUIZ -->
     ${state.quiz.length?`<div class="card" style="border-color:rgba(245,158,11,.15)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-        <div class="layer-label" style="color:var(--amber)">◇ GEN AI · SKILL ASSESSMENT QUIZ${state.isDemo?' <span style="color:var(--violet)">[DEMO]</span>':''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+        <div class="layer-label" style="color:var(--amber)">◇ GEN AI · KNOWLEDGE CHECK QUIZ${state.isDemo?' <span style="color:var(--violet)">[DEMO]</span>':''}</div>
         ${state.quizScore.done>0?`<span class="quiz-score" style="color:${state.quizScore.correct/state.quizScore.done>=.7?"var(--green)":"var(--amber)"}">
           ${state.quizScore.correct}/${state.quizScore.done} · ${Math.round(state.quizScore.correct/state.quizScore.done*100)}%
         </span>`:""}
       </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Answer all questions — each correct answer counts toward your progress score.</div>
       ${state.quiz.map((q,qi)=>renderQuizCard(q,qi)).join("")}
     </div>`:""}
 
-    <!-- AGENT SCHEDULE -->
+    <!-- AGENT SCHEDULE — TICKABLE SESSIONS -->
     ${state.schedule.length?`<div class="card card-green">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-        <div>
-          <div class="layer-label" style="color:var(--green)">◎ AGENT LAYER · AUTONOMOUS LEARNING PLAN</div>
-          <div class="section-title" style="font-size:16px">Weekly Schedule</div>
-        </div>
-        <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="narrateSchedule()">🔊 Brief Me</button>
+      <div style="margin-bottom:6px">
+        <div class="layer-label" style="color:var(--green)">◎ AGENT LAYER · LEARNING SCHEDULE</div>
+        <div class="section-title" style="font-size:16px">Weekly Action Plan</div>
       </div>
-      ${state.schedule.map((s,i)=>`
-        <div class="sched-row" style="animation-delay:${i*150}ms">
-          <div class="sched-week">${s.week}<br><span style="color:var(--text4);font-size:9px">${s.hours}h/wk</span></div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px">${s.skill}</div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:6px">🎯 ${s.milestone}</div>
-            <div>${s.sessions.map(sess=>`<span class="session-chip">📅 ${sess}</span>`).join("")}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:18px">Tick each session as you complete it — your progress updates in real time.</div>
+      ${state.schedule.map((s,wi)=>{
+        const weekDone=s.sessions.filter((_,si)=>state.sessionsDone[`${wi}_${si}`]).length;
+        const allDone=weekDone===s.sessions.length;
+        return`<div class="sched-row" style="animation-delay:${wi*150}ms;${allDone?"border-color:rgba(52,211,153,0.35);background:rgba(52,211,153,0.05)":""}">
+          <div class="sched-week">
+            ${s.week}<br>
+            <span style="color:var(--text4);font-size:9px">${s.hours}h/wk</span><br>
+            <span style="font-size:9px;margin-top:3px;display:block;color:${allDone?"var(--green)":"var(--text4)"}">${weekDone}/${s.sessions.length} done</span>
           </div>
-        </div>`).join("")}
-    </div>`:""}
-
-    <!-- AGENT LOG -->
-    ${state.agentLog.length?`<div class="card card-green">
-      <div class="layer-label" style="color:var(--green);margin-bottom:14px">◎ AGENT · AUTONOMOUS ACTIONS LOG</div>
-      ${state.agentLog.map((l,i)=>`<div class="log-item" style="animation-delay:${i*80}ms">${l}</div>`).join("")}
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px">
+              ${s.skill}
+              ${allDone?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ Complete</span>':''}
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:10px">🎯 ${s.milestone}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              ${s.sessions.map((sess,si)=>{
+                const skey=`${wi}_${si}`;
+                const done=!!state.sessionsDone[skey];
+                return`<div onclick="toggleSession('${skey}')" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;background:${done?"rgba(52,211,153,0.12)":"rgba(52,211,153,0.05)"};border:1px solid ${done?"var(--green)":"rgba(52,211,153,0.2)"};color:${done?"var(--green)":"var(--text3)"};transition:all .2s;user-select:none">
+                  <span style="font-size:12px">${done?"✓":"○"}</span>
+                  ${sess}
+                </div>`;
+              }).join("")}
+            </div>
+          </div>
+        </div>`;
+      }).join("")}
     </div>`:""}
 
     <!-- SHARE BAR -->
@@ -1295,7 +1292,7 @@ function renderResults(){
       <button class="btn btn-gold" style="padding:16px 32px;font-size:14px;font-weight:800;letter-spacing:.8px;border-radius:14px;box-shadow:0 4px 24px rgba(226,201,126,0.4)" onclick="exportPDF()">
         📄 Export PDF Report
       </button>
-      <button class="btn btn-green" onclick="openModal('progressModal');renderProgress()">📊 Progress</button>
+      <button class="btn btn-green" onclick="openModal('progressModal');renderProgress()">📊 Full Progress</button>
       <button class="btn btn-ghost" onclick="resetAll()">↺ New Assessment</button>
     </div>
   </div>`;
@@ -1317,20 +1314,6 @@ function renderQuizCard(q,qi){
       </button>`;
     }).join("")}
   </div>`;
-}
-
-/* ══════════════════════════════════════════
-   NARRATION
-══════════════════════════════════════════ */
-function narrateModule(tab){
-  const gc=state.genContent[tab];if(!gc)return;
-  speak(`Learning module for ${gc.skill}. ${gc.summary||""} Key points: ${(gc.keyPoints||[]).join(". ")}. Pro tip: ${gc.proTip||""}`,`📖 ${gc.skill}`);
-}
-function narrateSchedule(){
-  if(!state.schedule.length)return;
-  const text=`Your ${state.isDemo?"sample":"personalised"} learning schedule for ${state.role}. `+
-    state.schedule.map(s=>`${s.week}: Focus on ${s.skill}, ${s.hours} hours per week. Goal: ${s.milestone}.`).join(" ");
-  speak(text,"📅 Agent Schedule");
 }
 
 /* ══════════════════════════════════════════
@@ -1454,9 +1437,8 @@ function answerQuiz(qi,oi){
 }
 function switchTab(i){state.activeTab=i;render();}
 function resetAll(){
-  stopVoice();
   const cr=state.customRoles;
-  state={phase:0,role:state.role,skills:{},gaps:[],priorities:[],genContent:[],quiz:[],schedule:[],agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},activeTab:0,loading:false,isDemo:false,customRoles:cr,customRoleLoading:false};
+  state={phase:0,role:state.role,skills:{},gaps:[],priorities:[],genContent:[],quiz:[],schedule:[],agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},activeTab:0,loading:false,isDemo:false,checklist:{},sessionsDone:{},customRoles:cr,customRoleLoading:false};
   render();
 }
 

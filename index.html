@@ -272,7 +272,7 @@ input[type=range]{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer;
 
 <!-- ── VOICE BAR ── -->
 <div class="voice-bar hidden" id="voiceBar">
-  <button onclick="stopVoice()" style="background:none;border:none;color:#ef4444;font-size:15px;cursor:pointer" title="Stop">■</button>
+  <button onclick="stopVoice()" style="background:none;border:none;color:#ef4444;font-size:15px;cursor:pointer;flex-shrink:0" title="Stop">■</button>
   <div class="voice-wave">
     <div class="wave-bar" id="w1" style="height:6px"></div>
     <div class="wave-bar" id="w2" style="height:14px"></div>
@@ -282,8 +282,9 @@ input[type=range]{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer;
     <div class="wave-bar" id="w6" style="height:15px"></div>
     <div class="wave-bar" id="w7" style="height:5px"></div>
   </div>
-  <div style="flex:1;font-size:12px;color:var(--text2)" id="voiceText">Narrating…</div>
-  <button onclick="toggleVoicePause()" id="voicePauseBtn" style="background:none;border:none;color:var(--gold);font-size:14px;cursor:pointer">⏸</button>
+  <div style="flex:1;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="voiceText">Narrating…</div>
+  <!-- onclick=tapToPlay() — MUST stay as direct onclick, not addEventListener, so it counts as user gesture on mobile -->
+  <button onclick="tapToPlay()" id="voicePauseBtn" style="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;flex-shrink:0;padding:0 2px">⏸</button>
 </div>
 
 <!-- ── PROGRESS MODAL ── -->
@@ -618,85 +619,114 @@ function deleteCustomRole(roleName){
   initSkills();render();
   showToast(`Removed "${roleName}"`,"var(--text3)");
 }
-let waveInterval=null,voicePaused=false,voiceChunks=[],voiceChunkIdx=0;
-
-// Pre-load voices (Chrome loads them async)
+/* ══════════════════════════════════════════
+   VOICE — gesture-safe, mobile-compatible
+   WHY: Mobile browsers (Chrome/Safari) block
+   speechSynthesis.speak() from async/setTimeout
+   context. It MUST be called from a direct user
+   tap event. So we queue the text and show a
+   ▶ TAP TO PLAY button — speech only fires on
+   the user's own tap gesture.
+══════════════════════════════════════════ */
+let waveInterval=null,voicePaused=false;
+let voiceChunks=[],voiceChunkIdx=0;
+let pendingSpeech=null;  // queued text waiting for user tap
 let _voices=[];
-function loadVoices(){
-  _voices=window.speechSynthesis.getVoices();
-  if(!_voices.length && window.speechSynthesis.onvoiceschanged!==undefined){
-    window.speechSynthesis.onvoiceschanged=()=>{_voices=window.speechSynthesis.getVoices();};
-  }
-}
-if(window.speechSynthesis){loadVoices();window.speechSynthesis.onvoiceschanged=loadVoices;}
 
-function getBestVoice(){
-  if(!_voices.length)_voices=window.speechSynthesis.getVoices();
-  // Prefer en-IN, then en-GB, then en-US, then any English
+function _loadVoices(){if(window.speechSynthesis)_voices=speechSynthesis.getVoices();}
+if(window.speechSynthesis){_loadVoices();speechSynthesis.onvoiceschanged=_loadVoices;}
+
+function _bestVoice(){
+  if(!_voices.length)_voices=speechSynthesis.getVoices();
   return _voices.find(v=>v.lang==="en-IN")
     ||_voices.find(v=>v.lang==="en-GB")
-    ||_voices.find(v=>v.lang==="en-US"&&!v.name.includes("Google"))
+    ||_voices.find(v=>v.lang.startsWith("en-US"))
     ||_voices.find(v=>v.lang.startsWith("en"))
     ||_voices[0]||null;
 }
 
-// Split text into chunks ≤200 chars at sentence boundaries to avoid Chrome cutoff
-function chunkText(text,max=200){
-  const sentences=text.match(/[^.!?]+[.!?]*/g)||[text];
-  const chunks=[];let cur="";
-  for(const s of sentences){
-    if((cur+s).length>max&&cur){chunks.push(cur.trim());cur=s;}
-    else cur+=s;
+function _chunk(text,max=160){
+  const sents=text.match(/[^.!?]+[.!?]*/g)||[text];
+  const out=[];let cur="";
+  for(const s of sents){
+    if(cur&&(cur+s).length>max){out.push(cur.trim());cur=s;}else cur+=s;
   }
-  if(cur.trim())chunks.push(cur.trim());
-  return chunks;
+  if(cur.trim())out.push(cur.trim());
+  return out.filter(Boolean);
 }
 
-function speakChunk(){
-  if(voiceChunkIdx>=voiceChunks.length){
-    document.getElementById("voiceBar").classList.add("hidden");
-    clearInterval(waveInterval);waveInterval=null;return;
-  }
+/* Called recursively from onend — stays in browser speech queue */
+function _nextChunk(){
+  if(voiceChunkIdx>=voiceChunks.length){_voiceDone();return;}
   const u=new SpeechSynthesisUtterance(voiceChunks[voiceChunkIdx]);
-  u.rate=0.95;u.pitch=1;u.volume=1;
-  const v=getBestVoice();if(v)u.voice=v;
-  u.onend=()=>{voiceChunkIdx++;speakChunk();};
-  u.onerror=(e)=>{if(e.error!=="interrupted"){voiceChunkIdx++;speakChunk();}};
-  window.speechSynthesis.speak(u);
-  // Chrome workaround: resume every 10s to prevent cutoff
-  setTimeout(()=>{if(window.speechSynthesis.speaking&&!voicePaused)window.speechSynthesis.resume();},9000);
+  u.rate=0.93;u.pitch=1;u.volume=1;
+  const v=_bestVoice();if(v)u.voice=v;
+  u.onstart=()=>animateWave(true);
+  u.onend=()=>{voiceChunkIdx++;_nextChunk();};
+  u.onerror=(e)=>{if(e.error!=="interrupted"){voiceChunkIdx++;_nextChunk();}};
+  speechSynthesis.speak(u);
+  setTimeout(()=>{if(speechSynthesis.speaking&&!voicePaused)speechSynthesis.resume();},9200);
+}
+function _voiceDone(){
+  animateWave(false);
+  document.getElementById("voiceBar").classList.add("hidden");
+  pendingSpeech=null;
 }
 
+/* ── speak() — queue text, show TAP TO PLAY bar ── */
 function speak(text,label=""){
-  if(!window.speechSynthesis){showToast("⚠️ Voice not supported in this browser","var(--amber)");return;}
+  if(!window.speechSynthesis){showToast("⚠️ Voice not supported","var(--amber)");return;}
   stopVoice();
-  document.getElementById("voiceBar").classList.remove("hidden");
-  document.getElementById("voiceText").textContent=label||text.slice(0,55)+"…";
-  voiceChunks=chunkText(text);
-  voiceChunkIdx=0;
-  animateWave(true);voicePaused=false;
-  document.getElementById("voicePauseBtn").textContent="⏸";
-  // Small delay so browser registers user gesture
-  setTimeout(speakChunk,120);
+  pendingSpeech={text,label:label||text.slice(0,50)+"…"};
+  voiceChunks=_chunk(text);
+  voiceChunkIdx=0;voicePaused=false;
+  const bar=document.getElementById("voiceBar");
+  bar.classList.remove("hidden");
+  document.getElementById("voiceText").textContent="🔊 "+pendingSpeech.label;
+  /* Style play button as a gold pill — clear CTA */
+  const btn=document.getElementById("voicePauseBtn");
+  btn.textContent="▶ TAP TO PLAY";
+  btn.style.cssText="background:linear-gradient(135deg,#e2c97e,#c9922a);border:none;color:#07090f;font-size:11px;font-weight:800;padding:6px 14px;border-radius:20px;cursor:pointer;letter-spacing:.5px;white-space:nowrap";
+  animateWave(false);
 }
-function stopVoice(){
-  if(window.speechSynthesis)window.speechSynthesis.cancel();
-  voiceChunks=[];voiceChunkIdx=0;
-  document.getElementById("voiceBar").classList.add("hidden");
-  clearInterval(waveInterval);waveInterval=null;
-}
-function toggleVoicePause(){
+
+/* ── tapToPlay — MUST be in direct onclick handler ── */
+function tapToPlay(){
   if(!window.speechSynthesis)return;
-  if(voicePaused){window.speechSynthesis.resume();voicePaused=false;document.getElementById("voicePauseBtn").textContent="⏸";animateWave(true);}
-  else{window.speechSynthesis.pause();voicePaused=true;document.getElementById("voicePauseBtn").textContent="▶";animateWave(false);}
+  const btn=document.getElementById("voicePauseBtn");
+  if(pendingSpeech){
+    /* First play — direct user gesture → works on mobile */
+    pendingSpeech=null;
+    btn.textContent="⏸";
+    btn.style.cssText="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;padding:0 2px";
+    _nextChunk();
+    return;
+  }
+  if(speechSynthesis.speaking&&!voicePaused){
+    speechSynthesis.pause();voicePaused=true;animateWave(false);
+    btn.textContent="▶";
+    btn.style.cssText="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;padding:0 2px";
+  } else if(voicePaused){
+    speechSynthesis.resume();voicePaused=false;animateWave(true);
+    btn.textContent="⏸";
+    btn.style.cssText="background:none;border:none;color:var(--gold);font-size:18px;cursor:pointer;padding:0 2px";
+  }
+}
+/* alias for legacy calls */
+function toggleVoicePause(){tapToPlay();}
+
+function stopVoice(){
+  if(window.speechSynthesis)speechSynthesis.cancel();
+  voiceChunks=[];voiceChunkIdx=0;pendingSpeech=null;voicePaused=false;
+  animateWave(false);
+  document.getElementById("voiceBar").classList.add("hidden");
 }
 function animateWave(on){
-  clearInterval(waveInterval);
-  if(!on){["w1","w2","w3","w4","w5","w6","w7"].forEach(id=>document.getElementById(id).style.height="4px");return;}
+  clearInterval(waveInterval);waveInterval=null;
+  const ids=["w1","w2","w3","w4","w5","w6","w7"];
+  if(!on){ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.height="4px";});return;}
   waveInterval=setInterval(()=>{
-    ["w1","w2","w3","w4","w5","w6","w7"].forEach(id=>{
-      document.getElementById(id).style.height=Math.floor(Math.random()*16+4)+"px";
-    });
+    ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.height=Math.floor(Math.random()*16+4)+"px";});
   },120);
 }
 

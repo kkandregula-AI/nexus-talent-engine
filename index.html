@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>NEXUS · Talent Growth Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ══════════════════════════════════
+   THEME VARIABLES
+══════════════════════════════════ */
+:root{
+  --gold:#e2c97e;--gold2:#c9922a;--cyan:#00d4ff;--violet:#a78bfa;
+  --amber:#f59e0b;--green:#34d399;--red:#ef4444;--orange:#f97316;
+}
+[data-theme="dark"]{
+  --bg:#07090f;--bg2:#0d1220;--bg3:#111827;
+  --surface:rgba(255,255,255,0.025);--surface2:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--text4:#475569;
+  --grid-line:rgba(226,201,126,0.025);
+  --blob1:rgba(226,201,126,0.05);--blob2:rgba(0,212,255,0.04);
+  --card-bg:rgba(255,255,255,0.025);
+  --input-bg:rgba(255,255,255,0.04);
+  --shadow:rgba(0,0,0,0.5);
+  --scrollbar:#1e3a5f;
+}
+[data-theme="light"]{
+  --bg:#f0f4ff;--bg2:#e8edf8;--bg3:#dce4f5;
+  --surface:rgba(255,255,255,0.85);--surface2:rgba(255,255,255,0.95);
+  --border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.15);
+  --text:#1e2a3a;--text2:#374151;--text3:#6b7280;--text4:#9ca3af;
+  --grid-line:rgba(100,120,200,0.06);
+  --blob1:rgba(226,201,126,0.12);--blob2:rgba(0,180,220,0.08);
+  --card-bg:rgba(255,255,255,0.9);
+  --input-bg:rgba(255,255,255,0.7);
+  --shadow:rgba(0,0,80,0.1);
+  --scrollbar:#c7d2fe;
+}
+
+/* ══════════════════════════════════
+   BASE
+══════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background .4s,color .4s}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:4px}
+
+body::before{content:'';position:fixed;inset:0;pointer-events:none;
+  background-image:linear-gradient(var(--grid-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+  background-size:64px 64px;z-index:0}
+
+.blob{position:fixed;border-radius:50%;pointer-events:none;z-index:0}
+.blob1{top:-20%;right:-10%;width:55vw;height:55vw;background:radial-gradient(circle,var(--blob1) 0%,transparent 70%)}
+.blob2{bottom:-25%;left:-10%;width:50vw;height:50vw;background:radial-gradient(circle,var(--blob2) 0%,transparent 70%)}
+
+.wrap{max-width:800px;margin:0 auto;padding:0 20px 100px;position:relative;z-index:1}
+
+/* ══════════════════════════════════
+   HEADER
+══════════════════════════════════ */
+.header{padding:36px 0 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14}
+.header-title{font-family:'Cinzel',serif;font-size:clamp(20px,5vw,34px);font-weight:900;color:var(--text);line-height:1.1}
+.header-title span{color:var(--gold)}
+.header-sub{font-size:10px;letter-spacing:3px;color:var(--gold);font-weight:700;margin-bottom:7px}
+.header-actions{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.badges{display:flex;gap:5px;flex-wrap:wrap}
+.badge{font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 9px;border-radius:20px}
+.top-btns{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+
+/* ── THEME TOGGLE ── */
+.theme-toggle{width:50px;height:26px;border-radius:13px;border:1px solid var(--border2);background:var(--surface2);cursor:pointer;position:relative;transition:all .3s;flex-shrink:0}
+.theme-toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--gold);transition:transform .3s}
+[data-theme="light"] .theme-toggle::after{transform:translateX(24px);background:var(--gold2)}
+.theme-icon{font-size:11px;position:absolute;top:50%;transform:translateY(-50%);transition:all .3s}
+.theme-icon.moon{left:7px}
+.theme-icon.sun{right:6px}
+
+/* ══════════════════════════════════
+   API KEY BANNER
+══════════════════════════════════ */
+.api-banner{border-radius:14px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;transition:all .4s}
+.api-banner.no-key{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25)}
+.api-banner.has-key{background:rgba(52,211,153,0.07);border:1px solid rgba(52,211,153,0.25)}
+.api-input{flex:1;min-width:200px;background:var(--input-bg);border:1px solid var(--border2);border-radius:10px;padding:9px 14px;font-size:13px;color:var(--text);font-family:'DM Mono',monospace;outline:none;transition:all .2s}
+.api-input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,0.12)}
+.api-input::placeholder{color:var(--text4);font-family:'DM Sans',sans-serif}
+
+/* ══════════════════════════════════
+   DEMO BANNER
+══════════════════════════════════ */
+.demo-banner{background:linear-gradient(135deg,rgba(167,139,250,0.1),rgba(0,212,255,0.07));border:1px solid rgba(167,139,250,0.25);border-radius:14px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+/* ══════════════════════════════════
+   PHASE BAR
+══════════════════════════════════ */
+.phase-bar{display:flex;position:relative;margin-bottom:32px}
+.phase-bar::before{content:'';position:absolute;top:17px;left:0;right:0;height:1px;background:var(--border);z-index:0}
+.phase-node{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;z-index:1}
+.phase-dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid;transition:all .5s;background:var(--bg)}
+.phase-lbl{font-size:9px;letter-spacing:1.5px;font-weight:700;text-align:center;transition:color .5s}
+
+/* ══════════════════════════════════
+   CARDS
+══════════════════════════════════ */
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:18px;padding:24px;margin-bottom:20px;transition:background .4s,border-color .4s}
+.card-gold{border-color:rgba(226,201,126,0.18);background:rgba(226,201,126,0.03)}
+.card-cyan{border-color:rgba(0,212,255,0.18);background:rgba(0,212,255,0.03)}
+.card-violet{border-color:rgba(167,139,250,0.18);background:rgba(167,139,250,0.03)}
+.card-amber{border-color:rgba(245,158,11,0.18);background:rgba(245,158,11,0.03)}
+.card-green{border-color:rgba(52,211,153,0.18);background:rgba(52,211,153,0.03)}
+[data-theme="light"] .card-gold{background:rgba(226,201,126,0.06)}
+[data-theme="light"] .card-cyan{background:rgba(0,212,255,0.05)}
+[data-theme="light"] .card-violet{background:rgba(167,139,250,0.06)}
+[data-theme="light"] .card-amber{background:rgba(245,158,11,0.05)}
+[data-theme="light"] .card-green{background:rgba(52,211,153,0.05)}
+
+.layer-label{font-size:10px;letter-spacing:3px;font-weight:700;margin-bottom:5px}
+.section-title{font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px}
+.section-desc{font-size:13px;color:var(--text3);margin-bottom:18px;line-height:1.6}
+
+/* ══════════════════════════════════
+   ROLE PILLS & SLIDERS
+══════════════════════════════════ */
+.role-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.role-pill{padding:8px 16px;border-radius:30px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--text3);background:var(--surface);transition:all .2s}
+.role-pill.active{background:rgba(226,201,126,0.12);border-color:rgba(226,201,126,0.4);color:var(--gold)}
+.role-pill:hover{transform:translateY(-2px)}
+.skill-row{margin-bottom:14px}
+.skill-row-head{display:flex;justify-content:space-between;margin-bottom:5px}
+.skill-name{font-size:13px;color:var(--text2);font-weight:500}
+.skill-val{font-size:12px;font-family:'DM Mono',monospace;color:var(--gold);font-weight:700}
+.track{position:relative;height:7px;background:var(--surface2);border-radius:4px;cursor:pointer}
+.fill{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:4px;transition:width .2s;pointer-events:none}
+input[type=range]{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer;height:100%;margin:0}
+
+/* ══════════════════════════════════
+   GAP & PRIORITY
+══════════════════════════════════ */
+.gap-row{margin-bottom:12px;opacity:0;transform:translateX(-14px);transition:all .5s}
+.gap-row.show{opacity:1;transform:translateX(0)}
+.gap-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.gap-track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;position:relative}
+.gap-current{position:absolute;left:0;height:100%;border-radius:4px;background:rgba(226,201,126,0.25)}
+.gap-fill{position:absolute;height:100%;border-radius:4px;transition:width 1s}
+.prio-badge{font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;border:1px solid}
+.prio-row{display:flex;align-items:center;gap:14px;padding:13px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;opacity:0;animation:fadeUp .4s ease forwards}
+.prio-num{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;min-width:24px}
+
+/* ══════════════════════════════════
+   TABS
+══════════════════════════════════ */
+.tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:30px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--text3);background:var(--surface);transition:all .2s}
+.tab.active{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.35);color:var(--amber)}
+
+/* ══════════════════════════════════
+   LEARNING MODULE
+══════════════════════════════════ */
+.key-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-bottom:14px}
+.key-item{display:flex;gap:8px;align-items:flex-start;background:var(--surface);border-radius:10px;padding:10px 12px}
+.pro-tip{background:rgba(226,201,126,0.07);border:1px solid rgba(226,201,126,0.18);border-radius:12px;padding:12px 16px;margin-bottom:12px}
+.res-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.res-chip{font-size:11px;padding:5px 12px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--text3)}
+.sample-note{background:rgba(167,139,250,0.07);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--violet);margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+
+/* ══════════════════════════════════
+   QUIZ
+══════════════════════════════════ */
+.quiz-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+.quiz-q{font-size:14px;color:var(--text);margin-bottom:12px;line-height:1.6}
+.opt{width:100%;padding:10px 14px;border-radius:10px;font-size:13px;text-align:left;cursor:pointer;background:var(--surface2);border:1px solid var(--border);color:var(--text2);transition:all .2s;font-family:'DM Sans',sans-serif;margin-bottom:6px;display:block}
+.opt:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+.opt.correct{background:rgba(52,211,153,0.1)!important;border-color:var(--green)!important;color:var(--green)!important}
+.opt.wrong{background:rgba(239,68,68,0.1)!important;border-color:var(--red)!important;color:var(--red)!important}
+.quiz-score{font-size:13px;font-family:'DM Mono',monospace;padding:6px 14px;border-radius:20px;background:var(--surface);border:1px solid var(--border)}
+
+/* ══════════════════════════════════
+   SCHEDULE & LOG
+══════════════════════════════════ */
+.sched-row{display:flex;gap:14px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;opacity:0;animation:fadeUp .4s ease forwards}
+.sched-week{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);font-weight:700;text-align:center;min-width:54px}
+.session-chip{font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);color:var(--green);display:inline-block;margin:2px}
+.log-item{font-size:13px;color:var(--text2);padding:8px 0;border-bottom:1px solid var(--border);opacity:0;animation:fadeUp .3s ease forwards}
+
+/* ══════════════════════════════════
+   SHARE BAR
+══════════════════════════════════ */
+.share-bar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:16px}
+.share-label{font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--text3);margin-right:4px}
+.share-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:30px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid;transition:all .2s;font-family:'DM Sans',sans-serif;background:var(--surface2)}
+.share-btn:hover{transform:translateY(-2px)}
+.share-wa{border-color:rgba(37,211,102,0.4);color:#25d366}
+.share-wa:hover{background:rgba(37,211,102,0.1)}
+.share-email{border-color:rgba(0,212,255,0.4);color:var(--cyan)}
+.share-email:hover{background:rgba(0,212,255,0.1)}
+.share-copy{border-color:var(--border2);color:var(--text3)}
+.share-copy:hover{background:var(--surface2);color:var(--text)}
+
+/* ══════════════════════════════════
+   PROGRESS TRACKER
+══════════════════════════════════ */
+.progress-bar-wrap{height:10px;background:var(--surface2);border-radius:6px;overflow:hidden;margin-bottom:4px}
+.progress-bar-fill{height:100%;border-radius:6px;transition:width .8s}
+.progress-skill{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;flex-wrap:wrap;gap:12px}
+
+/* ══════════════════════════════════
+   BUTTONS
+══════════════════════════════════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:13px;font-size:13px;font-weight:700;letter-spacing:.4px;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .2s}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:scale(.97)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#07090f;box-shadow:0 0 24px rgba(226,201,126,0.2)}
+.btn-gold:hover{box-shadow:0 8px 32px rgba(226,201,126,0.35)}
+.btn-violet{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff}
+.btn-ghost{background:var(--surface);color:var(--text3);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:var(--border2)}
+.btn-green{background:linear-gradient(135deg,#34d399,#059669);color:#fff}
+.btn-demo{background:linear-gradient(135deg,#a78bfa,#00d4ff);color:#fff}
+.btn-row{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+.btn-full{width:100%}
+
+/* ══════════════════════════════════
+   VOICE BAR
+══════════════════════════════════ */
+.voice-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid rgba(226,201,126,0.25);border-radius:50px;padding:10px 20px;display:flex;align-items:center;gap:14px;z-index:200;box-shadow:0 8px 40px var(--shadow);min-width:300px}
+.voice-wave{display:flex;gap:3px;align-items:center;height:20px}
+.wave-bar{width:3px;border-radius:3px;background:var(--gold);transition:height .15s}
+
+/* ══════════════════════════════════
+   LOADING
+══════════════════════════════════ */
+.loading-ring{width:56px;height:56px;border-radius:50%;border:2px solid rgba(245,158,11,.15);border-top:2px solid var(--amber);animation:spin 1s linear infinite;margin:0 auto 20px}
+
+/* ══════════════════════════════════
+   MODAL
+══════════════════════════════════ */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;overflow:auto;padding:30px 16px}
+.modal-box{max-width:620px;margin:0 auto;background:var(--bg2);border:1px solid var(--border2);border-radius:22px;padding:28px;position:relative}
+
+/* ══════════════════════════════════
+   ANIMATIONS
+══════════════════════════════════ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes glow{0%,100%{box-shadow:0 0 18px rgba(226,201,126,.15)}50%{box-shadow:0 0 36px rgba(226,201,126,.4)}}
+.fade-up{animation:fadeUp .5s ease forwards}
+.pulse-anim{animation:pulse 1.5s ease infinite}
+.glow-anim{animation:glow 2.5s ease infinite}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+
+<!-- ── VOICE BAR ── -->
+<div class="voice-bar hidden" id="voiceBar">
+  <button onclick="stopVoice()" style="background:none;border:none;color:#ef4444;font-size:15px;cursor:pointer" title="Stop">■</button>
+  <div class="voice-wave">
+    <div class="wave-bar" id="w1" style="height:6px"></div>
+    <div class="wave-bar" id="w2" style="height:14px"></div>
+    <div class="wave-bar" id="w3" style="height:9px"></div>
+    <div class="wave-bar" id="w4" style="height:18px"></div>
+    <div class="wave-bar" id="w5" style="height:7px"></div>
+    <div class="wave-bar" id="w6" style="height:15px"></div>
+    <div class="wave-bar" id="w7" style="height:5px"></div>
+  </div>
+  <div style="flex:1;font-size:12px;color:var(--text2)" id="voiceText">Narrating…</div>
+  <button onclick="toggleVoicePause()" id="voicePauseBtn" style="background:none;border:none;color:var(--gold);font-size:14px;cursor:pointer">⏸</button>
+</div>
+
+<!-- ── PROGRESS MODAL ── -->
+<div class="modal-overlay" id="progressModal">
+  <div class="modal-box">
+    <button onclick="closeModal('progressModal')" style="position:absolute;top:16px;right:18px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
+    <div class="layer-label" style="color:var(--gold)">📊 PROGRESS TRACKER</div>
+    <div class="section-title" style="margin-bottom:4px">Your Learning Journey</div>
+    <div class="section-desc" style="margin-bottom:16px">Saved across browser sessions · localStorage</div>
+    <div id="progressContent"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="clearProgress()">🗑 Clear All</button>
+      <button class="btn btn-gold" onclick="exportPDF()">📄 Export PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SHARE MODAL ── -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal-box">
+    <button onclick="closeModal('shareModal')" style="position:absolute;top:16px;right:18px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
+    <div class="layer-label" style="color:var(--green)">📤 SHARE LEARNING PLAN</div>
+    <div class="section-title" style="margin-bottom:4px">Share Your Plan</div>
+    <div class="section-desc">Send your personalised learning roadmap via WhatsApp or Email.</div>
+    <div id="sharePreview" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;font-size:12px;color:var(--text2);line-height:1.7;max-height:200px;overflow:auto;font-family:'DM Mono',monospace;margin-bottom:18px;white-space:pre-wrap"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn share-btn share-wa" style="font-size:13px;padding:11px 20px" onclick="shareViaWhatsApp()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp
+      </button>
+      <button class="btn share-btn share-email" style="font-size:13px;padding:11px 20px" onclick="shareViaEmail()">
+        📧 Email
+      </button>
+      <button class="btn share-btn share-copy" style="font-size:13px;padding:11px 20px" onclick="copyShareText()">
+        📋 Copy Text
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN WRAP ── -->
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="header-sub">NEXUS · QUAD-INTELLIGENCE PLATFORM v2</div>
+      <div class="header-title">Talent Growth <span>Engine</span></div>
+    </div>
+    <div class="header-actions">
+      <div class="badges">
+        <span class="badge" style="background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.25)">ML</span>
+        <span class="badge" style="background:rgba(167,139,250,.1);color:var(--violet);border:1px solid rgba(167,139,250,.25)">AI</span>
+        <span class="badge" style="background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.25)">Gen AI</span>
+        <span class="badge" style="background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.25)">Agent</span>
+      </div>
+      <div class="top-btns">
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          <span class="theme-icon moon">🌙</span>
+          <span class="theme-icon sun">☀️</span>
+        </button>
+        <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="openModal('progressModal');renderProgress()">📊 Progress</button>
+        <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="resetAll()">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- API KEY BANNER -->
+  <div class="api-banner" id="apiBanner">
+    <div style="flex:1;min-width:220px">
+      <div id="apiBannerTitle" style="font-size:12px;font-weight:700;margin-bottom:2px"></div>
+      <div id="apiBannerDesc" style="font-size:11px;color:var(--text3)"></div>
+    </div>
+    <input type="password" class="api-input" id="apiKeyInput" placeholder="sk-ant-api03-…  Enter your Claude API key" style="max-width:300px"/>
+    <button class="btn" style="padding:9px 18px;font-size:12px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:#07090f;flex-shrink:0" onclick="saveApiKey()">Save Key</button>
+    <button class="btn btn-ghost" style="padding:9px 14px;font-size:12px;border-radius:10px;flex-shrink:0" id="clearKeyBtn" onclick="clearApiKey()">Clear</button>
+  </div>
+
+  <!-- PHASE BAR -->
+  <div class="phase-bar" id="phaseBar"></div>
+
+  <!-- MAIN CONTENT -->
+  <div id="mainContent"></div>
+
+</div><!-- /wrap -->
+
+<script>
+/* ══════════════════════════════════════════
+   DATA
+══════════════════════════════════════════ */
+const ROLES={
+  "AI Product Manager":{
+    skills:["AI/ML Basics","Product Strategy","Prompt Engineering","Data Literacy","Agile","Stakeholder Mgmt"],
+    req:[8,9,9,7,8,8]
+  },
+  "AI/ML Engineer":{
+    skills:["Python","Machine Learning","Deep Learning","MLOps","Statistics","Data Engineering"],
+    req:[9,8,7,8,8,7]
+  },
+  "Full Stack Developer":{
+    skills:["React","Node.js","System Design","Databases","DevOps","API Design"],
+    req:[9,8,9,8,7,8]
+  },
+  "Data Scientist":{
+    skills:["Statistics","Python","Machine Learning","Data Visualization","SQL","Feature Engineering"],
+    req:[9,8,9,8,8,8]
+  },
+  "Product Manager":{
+    skills:["Product Strategy","User Research","Agile","Data Analysis","Roadmapping","Stakeholder Mgmt"],
+    req:[9,8,8,7,8,8]
+  }
+};
+const DEMAND={
+  "Python":.95,"Machine Learning":.9,"Deep Learning":.85,"MLOps":.82,"Statistics":.8,"Data Engineering":.78,
+  "AI/ML Basics":.95,"Product Strategy":.9,"Prompt Engineering":.92,"Data Literacy":.82,"Agile":.75,"Stakeholder Mgmt":.72,
+  "React":.9,"Node.js":.85,"System Design":.95,"Databases":.85,"DevOps":.8,"API Design":.83,
+  "Data Visualization":.8,"SQL":.85,"Feature Engineering":.83,"User Research":.8,"Roadmapping":.75,"Data Analysis":.85
+};
+const PRIO_COLS={Critical:"#ef4444",High:"#f97316",Medium:"#f59e0b",Low:"#34d399"};
+const PHASE_META=[
+  {label:"Profile",icon:"◈",color:"#e2c97e"},
+  {label:"ML",icon:"⬡",color:"#00d4ff"},
+  {label:"AI Score",icon:"◉",color:"#a78bfa"},
+  {label:"Gen AI",icon:"◇",color:"#f59e0b"},
+  {label:"Agent",icon:"◎",color:"#34d399"}
+];
+
+/* ── SAMPLE DATA (Demo Mode) ── */
+const SAMPLE_CONTENT=[
+  {
+    skill:"Prompt Engineering",
+    summary:"Prompt Engineering is the art of crafting precise inputs to large language models to reliably produce high-quality, targeted outputs. For an AI Product Manager, mastering prompts means faster prototyping, better AI feature specs, and more effective collaboration with engineering teams.",
+    keyPoints:[
+      "Learn chain-of-thought and few-shot prompting patterns",
+      "Use system prompts to define model persona and constraints",
+      "Iterate prompts with structured A/B testing approaches",
+      "Document prompt libraries for reuse across your product"
+    ],
+    proTip:"Build a personal 'prompt portfolio' — a versioned doc of your best prompts. It becomes your unfair advantage when scoping AI features.",
+    resources:[
+      {title:"Anthropic Prompt Engineering Guide",type:"Article"},
+      {title:"DeepLearning.AI Prompting Course",type:"Course"},
+      {title:"PromptBase",type:"Tool"}
+    ]
+  },
+  {
+    skill:"AI/ML Basics",
+    summary:"A solid grounding in AI/ML fundamentals allows an AI Product Manager to communicate effectively with data scientists, make informed build-vs-buy decisions, and set realistic expectations for model performance. You don't need to write code — you need to understand what's possible.",
+    keyPoints:[
+      "Understand supervised vs unsupervised vs reinforcement learning",
+      "Learn key metrics: precision, recall, F1, AUC-ROC",
+      "Study model evaluation, overfitting, and bias concepts",
+      "Explore foundational LLM concepts: tokens, embeddings, RLHF"
+    ],
+    proTip:"Shadow a data scientist for one sprint. Observing their actual workflow closes the knowledge gap faster than any course.",
+    resources:[
+      {title:"Fast.ai Practical Deep Learning",type:"Course"},
+      {title:"Google ML Crash Course",type:"Course"},
+      {title:"Chip Huyen — Designing ML Systems",type:"Book"}
+    ]
+  },
+  {
+    skill:"Data Literacy",
+    summary:"Data literacy empowers an AI PM to independently validate product hypotheses, interrogate dashboards, and challenge misleading metrics. Decisions rooted in data earn engineering and leadership trust faster than intuition alone.",
+    keyPoints:[
+      "Master SQL for self-serve data pulls and validation",
+      "Learn to design and read A/B test results correctly",
+      "Understand cohort analysis and funnel visualisation",
+      "Build fluency with tools like Mixpanel, Amplitude or Metabase"
+    ],
+    proTip:"Never accept a metric at face value — always ask 'how is this measured?' and 'what does it exclude?' It reveals hidden product assumptions.",
+    resources:[
+      {title:"Mode Analytics SQL Tutorial",type:"Course"},
+      {title:"Lean Analytics (Book)",type:"Book"},
+      {title:"Metabase",type:"Tool"}
+    ]
+  }
+];
+const SAMPLE_QUIZ=[
+  {question:"What technique involves providing a model with step-by-step reasoning examples to improve complex task performance?",options:["Zero-shot prompting","Chain-of-thought prompting","Fine-tuning","RLHF"],correct:1},
+  {question:"Which metric best captures a model's performance when both false positives and false negatives are equally costly?",options:["Accuracy","Precision","Recall","F1 Score"],correct:3},
+  {question:"What does 'overfitting' mean in the context of ML models?",options:["The model is too small","The model memorises training data and fails on new data","The model trains too slowly","The model has too many features"],correct:1},
+  {question:"Which SQL clause is used to filter aggregated results?",options:["WHERE","FILTER","HAVING","GROUP BY"],correct:2},
+  {question:"What is the primary purpose of an A/B test in a product context?",options:["Improve code quality","Compare two variants to determine which performs better","Measure server load","Train an ML model"],correct:1}
+];
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let state={
+  phase:0,role:"AI Product Manager",
+  skills:{},gaps:[],priorities:[],
+  genContent:[],quiz:[],schedule:[],
+  agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},
+  activeTab:0,loading:false,isDemo:false
+};
+
+/* ══════════════════════════════════════════
+   THEME
+══════════════════════════════════════════ */
+function toggleTheme(){
+  const html=document.documentElement;
+  const current=html.getAttribute("data-theme");
+  const next=current==="dark"?"light":"dark";
+  html.setAttribute("data-theme",next);
+  localStorage.setItem("nexus_theme",next);
+}
+(function initTheme(){
+  const saved=localStorage.getItem("nexus_theme");
+  if(saved)document.documentElement.setAttribute("data-theme",saved);
+})();
+
+/* ══════════════════════════════════════════
+   API KEY MANAGEMENT
+══════════════════════════════════════════ */
+function getApiKey(){return localStorage.getItem("nexus_api_key")||"";}
+function saveApiKey(){
+  const val=document.getElementById("apiKeyInput").value.trim();
+  if(!val){alert("Please enter a valid API key.");return;}
+  localStorage.setItem("nexus_api_key",val);
+  renderApiBanner();
+  showToast("✅ API key saved! AI features are now active.","var(--green)");
+}
+function clearApiKey(){
+  if(!confirm("Remove saved API key?"))return;
+  localStorage.removeItem("nexus_api_key");
+  document.getElementById("apiKeyInput").value="";
+  renderApiBanner();
+  showToast("API key removed. Demo mode active.","var(--amber)");
+}
+function renderApiBanner(){
+  const key=getApiKey();
+  const banner=document.getElementById("apiBanner");
+  const title=document.getElementById("apiBannerTitle");
+  const desc=document.getElementById("apiBannerDesc");
+  const input=document.getElementById("apiKeyInput");
+  const clearBtn=document.getElementById("clearKeyBtn");
+  if(key){
+    banner.className="api-banner has-key";
+    title.innerHTML='<span style="color:var(--green)">✅ Claude API Key Active</span>';
+    desc.textContent="AI-powered personalised content & quiz generation is enabled.";
+    input.value="sk-ant-…"+key.slice(-6);
+    input.disabled=true;
+    clearBtn.style.display="inline-flex";
+  } else {
+    banner.className="api-banner no-key";
+    title.innerHTML='<span style="color:var(--amber)">⚠️ No API Key — Demo Mode</span>';
+    desc.textContent="Enter your Claude API key to get AI-personalised content. Demo uses sample data.";
+    input.value="";
+    input.disabled=false;
+    clearBtn.style.display="none";
+  }
+}
+
+/* ══════════════════════════════════════════
+   VOICE
+══════════════════════════════════════════ */
+let waveInterval=null,voicePaused=false;
+function speak(text,label=""){
+  if(!window.speechSynthesis)return;
+  stopVoice();
+  document.getElementById("voiceBar").classList.remove("hidden");
+  document.getElementById("voiceText").textContent=label||text.slice(0,55)+"…";
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=1;u.pitch=1;
+  u.onend=()=>{document.getElementById("voiceBar").classList.add("hidden");clearInterval(waveInterval);};
+  speechSynthesis.speak(u);
+  animateWave(true);voicePaused=false;
+  document.getElementById("voicePauseBtn").textContent="⏸";
+}
+function stopVoice(){
+  if(window.speechSynthesis)speechSynthesis.cancel();
+  document.getElementById("voiceBar").classList.add("hidden");
+  clearInterval(waveInterval);waveInterval=null;
+}
+function toggleVoicePause(){
+  if(!window.speechSynthesis)return;
+  if(voicePaused){speechSynthesis.resume();voicePaused=false;document.getElementById("voicePauseBtn").textContent="⏸";animateWave(true);}
+  else{speechSynthesis.pause();voicePaused=true;document.getElementById("voicePauseBtn").textContent="▶";animateWave(false);}
+}
+function animateWave(on){
+  clearInterval(waveInterval);
+  if(!on){["w1","w2","w3","w4","w5","w6","w7"].forEach(id=>document.getElementById(id).style.height="4px");return;}
+  waveInterval=setInterval(()=>{
+    ["w1","w2","w3","w4","w5","w6","w7"].forEach(id=>{
+      document.getElementById(id).style.height=Math.floor(Math.random()*16+4)+"px";
+    });
+  },120);
+}
+
+/* ══════════════════════════════════════════
+   CLAUDE API
+══════════════════════════════════════════ */
+async function callClaude(prompt,system="Respond ONLY in valid JSON. No markdown fences, no preamble."){
+  const key=getApiKey();
+  if(!key)throw new Error("NO_KEY");
+  const r=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system,messages:[{role:"user",content:prompt}]})
+  });
+  const d=await r.json();
+  if(d.error)throw new Error(d.error.message);
+  return(d.content||[]).map(b=>b.text||"").join("");
+}
+function parseJSON(raw){
+  try{return JSON.parse(raw.replace(/```json|```/g,"").trim());}catch{return null;}
+}
+
+/* ══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function getPrio(gap,demand){
+  const s=gap*demand*10;
+  if(s>=5.5)return"Critical";if(s>=3.5)return"High";if(s>=1.5)return"Medium";return"Low";
+}
+function initSkills(){
+  const s={};
+  ROLES[state.role].skills.forEach(sk=>{s[sk]=Math.floor(Math.random()*5)+2;});
+  state.skills=s;
+}
+function showToast(msg,color="var(--green)"){
+  const t=document.createElement("div");
+  t.style.cssText=`position:fixed;top:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid ${color};color:${color};padding:10px 22px;border-radius:30px;font-size:13px;font-weight:600;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:fadeUp .3s ease`;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2800);
+}
+
+/* ══════════════════════════════════════════
+   SHARE
+══════════════════════════════════════════ */
+function buildShareText(){
+  const lines=[
+    `🎯 NEXUS Talent Growth Plan`,
+    `Role: ${state.role}`,
+    `Generated: ${new Date().toLocaleDateString()}`,
+    ``,
+    `📊 TOP SKILL GAPS`,
+    ...state.priorities.filter(p=>p.gap>0).slice(0,4).map(p=>`• ${p.skill}: ${p.current}→${p.required} [${p.priority}]`),
+    ``,
+    `📅 LEARNING SCHEDULE`,
+    ...state.schedule.map(s=>`• ${s.week}: ${s.skill} (${s.hours}h/wk)`),
+    ``,
+    `🏆 QUIZ SCORE: ${state.quizScore.done>0?`${state.quizScore.correct}/${state.quizScore.done} (${Math.round(state.quizScore.correct/state.quizScore.done*100)}%)`:"Not taken yet"}`,
+    ``,
+    `Generated by NEXUS Quad-Intelligence Platform · Powered by Claude AI`
+  ];
+  return lines.join("\n");
+}
+function openShareModal(){
+  document.getElementById("sharePreview").textContent=buildShareText();
+  openModal("shareModal");
+}
+function shareViaWhatsApp(){
+  const text=encodeURIComponent(buildShareText());
+  window.open(`https://wa.me/?text=${text}`,"_blank");
+}
+function shareViaEmail(){
+  const body=encodeURIComponent(buildShareText());
+  const sub=encodeURIComponent(`My NEXUS Learning Plan — ${state.role}`);
+  window.location.href=`mailto:?subject=${sub}&body=${body}`;
+}
+function copyShareText(){
+  navigator.clipboard.writeText(buildShareText()).then(()=>showToast("📋 Copied to clipboard!"));
+}
+
+/* ══════════════════════════════════════════
+   LOCALSTORAGE PROGRESS
+══════════════════════════════════════════ */
+function saveProgress(){
+  const data={role:state.role,timestamp:Date.now(),priorities:state.priorities,quizScore:state.quizScore,schedule:state.schedule,isDemo:state.isDemo};
+  const hist=JSON.parse(localStorage.getItem("nexus_progress")||"[]");
+  const idx=hist.findIndex(h=>h.role===state.role);
+  if(idx>=0)hist[idx]=data;else hist.push(data);
+  localStorage.setItem("nexus_progress",JSON.stringify(hist));
+}
+function loadProgress(){return JSON.parse(localStorage.getItem("nexus_progress")||"[]");}
+function clearProgress(){if(confirm("Clear all saved progress?"))localStorage.removeItem("nexus_progress");renderProgress();}
+function renderProgress(){
+  const hist=loadProgress();
+  const el=document.getElementById("progressContent");
+  if(!hist.length){el.innerHTML='<p style="color:var(--text3);font-size:13px;padding:16px 0">No saved progress yet.</p>';return;}
+  el.innerHTML=hist.map(h=>{
+    const date=new Date(h.timestamp).toLocaleDateString();
+    const top=(h.priorities||[]).filter(p=>p.gap>0).slice(0,3);
+    const score=h.quizScore?.done>0?`Quiz: ${h.quizScore.correct}/${h.quizScore.done}`:"";
+    return`<div class="progress-skill">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${h.role}${h.isDemo?' <span style="font-size:10px;color:var(--violet);font-weight:700">[DEMO]</span>':''}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${date} ${score?'· <span style="color:var(--green)">'+score+'</span>':''}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:7px">
+          ${top.map(p=>`<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${PRIO_COLS[p.priority]}15;color:${PRIO_COLS[p.priority]};border:1px solid ${PRIO_COLS[p.priority]}30">${p.skill}</span>`).join("")}
+        </div>
+      </div>
+      <div>${top.map(p=>{
+        const pct=clamp(p.current/p.required*100,0,100);
+        return`<div style="margin-bottom:8px;min-width:110px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:2px">${p.skill}</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%;background:${PRIO_COLS[p.priority]}"></div></div>
+          <div style="font-size:9px;color:var(--text3);text-align:right">${Math.round(pct)}%</div>
+        </div>`;
+      }).join("")}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ══════════════════════════════════════════
+   PDF EXPORT
+══════════════════════════════════════════ */
+function exportPDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const W=doc.internal.pageSize.getWidth();
+  let y=20;const lh=7;
+  const addLine=(text,size,color,x=15)=>{
+    doc.setFontSize(size);if(color)doc.setTextColor(...color);
+    const lines=doc.splitTextToSize(String(text||""),W-30);
+    lines.forEach(l=>{if(y>275){doc.addPage();y=20;}doc.text(l,x,y);y+=lh;});
+  };
+  doc.setFillColor(7,9,15);doc.rect(0,0,W,38,"F");
+  doc.setTextColor(226,201,126);doc.setFontSize(20);doc.text("NEXUS · Talent Growth Engine",15,18);
+  doc.setFontSize(9);doc.setTextColor(100,116,139);
+  doc.text(`Role: ${state.role}   Date: ${new Date().toLocaleDateString()}   Mode: ${state.isDemo?"Demo":"AI"}   Quiz: ${state.quizScore.correct}/${state.quizScore.done}`,15,28);
+  y=48;
+  doc.setFillColor(15,25,45);doc.rect(10,y-6,W-20,10,"F");
+  addLine("SKILL GAP ANALYSIS (ML LAYER)",12,[0,212,255]);
+  state.priorities.filter(p=>p.gap>0).forEach(p=>{
+    addLine(`${p.skill}  |  ${p.current} → ${p.required}  |  ${p.priority}  |  Score: ${p.score}`,9,[190,200,220]);
+  });
+  y+=4;
+  if(state.genContent.length){
+    doc.setFillColor(15,25,45);doc.rect(10,y-6,W-20,10,"F");
+    addLine("LEARNING MODULES (GEN AI LAYER)",12,[245,158,11]);
+    state.genContent.forEach(g=>{
+      addLine(g.skill,11,[226,201,126]);
+      addLine(g.summary||"",9,[180,180,180]);
+      (g.keyPoints||[]).forEach(kp=>addLine("• "+kp,9,[140,140,150]));
+      if(g.proTip)addLine("Tip: "+g.proTip,9,[200,180,100]);
+      y+=2;
+    });
+  }
+  y+=4;
+  if(state.schedule.length){
+    doc.setFillColor(15,25,45);doc.rect(10,y-6,W-20,10,"F");
+    addLine("AGENT LEARNING SCHEDULE",12,[52,211,153]);
+    state.schedule.forEach(s=>{
+      addLine(`${s.week}: ${s.skill} — ${s.hours}h/week`,9,[190,200,220]);
+      addLine(`Goal: ${s.milestone}`,9,[140,150,160]);
+      y+=2;
+    });
+  }
+  if(state.quizScore.done>0){
+    y+=4;
+    const pct=state.quizScore.correct/state.quizScore.done;
+    addLine(`QUIZ RESULT: ${state.quizScore.correct}/${state.quizScore.done} (${Math.round(pct*100)}%)`,11,[pct>=.7?52:239,pct>=.7?211:68,pct>=.7?153:68]);
+  }
+  if(state.isDemo)addLine("Note: This report was generated in DEMO mode. Add your Claude API key for a fully personalised AI plan.",9,[167,139,250]);
+  doc.setFontSize(8);doc.setTextColor(60,70,90);
+  doc.text("Generated by NEXUS Quad-Intelligence Platform · Powered by Claude AI",15,285);
+  doc.save(`nexus_${state.role.replace(/\s+/g,"_")}_${Date.now()}.pdf`);
+}
+
+/* ══════════════════════════════════════════
+   MODAL
+══════════════════════════════════════════ */
+function openModal(id){document.getElementById(id).style.display="block";}
+function closeModal(id){document.getElementById(id).style.display="none";}
+
+/* ══════════════════════════════════════════
+   PHASE RENDERING
+══════════════════════════════════════════ */
+function renderPhaseBar(){
+  const el=document.getElementById("phaseBar");
+  el.innerHTML=PHASE_META.map((p,i)=>{
+    const done=i<state.phase,active=i===state.phase;
+    const col=done?"var(--green)":active?p.color:"var(--text4)";
+    const bg=done?"rgba(52,211,153,.1)":active?`${p.color}12`:"var(--surface)";
+    return`<div class="phase-node">
+      <div class="phase-dot" style="background:${bg};border-color:${col};color:${col};${active?`box-shadow:0 0 18px ${p.color}45`:""}">
+        ${done?"✓":p.icon}
+      </div>
+      <div class="phase-lbl" style="color:${col}">${p.label.toUpperCase()}</div>
+    </div>`;
+  }).join("");
+}
+function render(){
+  renderPhaseBar();renderApiBanner();
+  const el=document.getElementById("mainContent");
+  if(state.phase===0)el.innerHTML=renderInput();
+  else if(state.phase===1)el.innerHTML=renderML();
+  else if(state.phase===2)el.innerHTML=renderAI();
+  else if(state.phase===3&&state.loading)el.innerHTML=renderLoading();
+  else if(state.phase>=3)el.innerHTML=renderResults();
+  attachEvents();
+}
+
+/* ── INPUT PHASE ── */
+function renderInput(){
+  return`<div class="fade-up">
+    <!-- DEMO BANNER -->
+    <div class="demo-banner">
+      <div style="font-size:22px">🎮</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:700;color:var(--violet);margin-bottom:3px">Try the DEMO first — no API key needed!</div>
+        <div style="font-size:12px;color:var(--text3)">Click <strong style="color:var(--text2)">Load Sample Profile</strong> to instantly see the full 4-layer workflow with a pre-filled AI Product Manager profile. Then add your API key above for a fully personalised AI plan on any role.</div>
+      </div>
+      <button class="btn btn-demo" style="padding:10px 20px;font-size:12px;flex-shrink:0" onclick="loadDemoProfile()">⚡ Load Sample Profile</button>
+    </div>
+
+    <div class="card card-gold">
+      <div class="layer-label" style="color:var(--cyan)">◈ ML LAYER · PROFILE INGESTION</div>
+      <div class="section-title">Build Your Skill Profile</div>
+      <div class="section-desc">Select your target role and rate your current skills honestly. The ML engine computes gap scores weighted by live market demand.</div>
+
+      <div style="font-size:11px;color:var(--text2);font-weight:600;letter-spacing:1px;margin-bottom:10px">TARGET ROLE</div>
+      <div class="role-grid">
+        ${Object.keys(ROLES).map(r=>`<button class="role-pill${r===state.role?" active":""}" data-role="${r}">${r}</button>`).join("")}
+      </div>
+
+      <div style="font-size:11px;color:var(--text2);font-weight:600;letter-spacing:1px;margin-bottom:14px">CURRENT SKILL LEVELS (1–10)</div>
+      ${ROLES[state.role].skills.map(sk=>`
+        <div class="skill-row">
+          <div class="skill-row-head">
+            <span class="skill-name">${sk}</span>
+            <span class="skill-val" id="sv_${sk.replace(/\W/g,"_")}">${state.skills[sk]||1}<span style="color:var(--text4)">/10</span></span>
+          </div>
+          <div class="track">
+            <div class="fill" id="sf_${sk.replace(/\W/g,"_")}" style="width:${(state.skills[sk]||1)*10}%"></div>
+            <input type="range" min="1" max="10" value="${state.skills[sk]||1}" data-skill="${sk}" class="skill-input"/>
+          </div>
+        </div>`).join("")}
+    </div>
+
+    <button class="btn btn-gold btn-full glow-anim" onclick="runML()">
+      ⚡ ANALYSE SKILL GAPS · LAUNCH QUAD-STACK
+    </button>
+  </div>`;
+}
+
+/* ── ML PHASE ── */
+function renderML(){
+  return`<div class="fade-up">
+    <div class="card card-cyan">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:20px;height:20px;border:2px solid var(--cyan);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0"></div>
+        <div>
+          <div class="layer-label" style="color:var(--cyan)">⬡ ML LAYER · PATTERN DETECTION</div>
+          <div style="font-size:13px;color:var(--text3);margin-top:2px">Computing gap scores weighted by market demand index…</div>
+        </div>
+      </div>
+      ${state.gaps.map((g,i)=>{
+        const col=PRIO_COLS[getPrio(g.gap,g.demand)];
+        return`<div class="gap-row" id="gr${i}">
+          <div class="gap-row-head">
+            <span style="font-size:13px;color:var(--text2)">${g.skill}</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="prio-badge" style="background:${col}15;color:${col};border-color:${col}35">${getPrio(g.gap,g.demand)}</span>
+              <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${g.current}→${g.required}</span>
+            </div>
+          </div>
+          <div class="gap-track">
+            <div class="gap-current" style="width:${g.current*10}%"></div>
+            <div class="gap-fill" style="left:${g.current*10}%;width:0%;background:${col}" id="gf${i}"></div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+/* ── AI SCORING ── */
+function renderAI(){
+  return`<div class="fade-up">
+    <div class="card card-violet">
+      <div class="layer-label" style="color:var(--violet)">◉ AI LAYER · PRIORITY SCORING</div>
+      <div class="section-title">Priority Matrix</div>
+      <div class="section-desc">Formula: Gap × Market Demand Index → Impact Score → Priority tier</div>
+      ${state.priorities.filter(p=>p.gap>0).map((p,i)=>{
+        const col=PRIO_COLS[p.priority];
+        return`<div class="prio-row" style="animation-delay:${i*80}ms">
+          <div class="prio-num" style="color:${col}">${i+1}</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px">${p.skill}</div>
+            <div style="font-size:11px;color:var(--text3)">Gap: ${p.gap}/10 · Demand: ${Math.round(p.demand*100)}% · Score: <span style="color:${col};font-family:'DM Mono',monospace">${p.score}</span></div>
+          </div>
+          <span class="prio-badge" style="background:${col}15;color:${col};border-color:${col}35;padding:4px 12px">${p.priority}</span>
+        </div>`;
+      }).join("")}
+    </div>
+    <button class="btn btn-violet btn-full" onclick="runGenAI()">
+      ◇ GENERATE LEARNING CONTENT · GEN AI LAYER
+    </button>
+  </div>`;
+}
+
+/* ── LOADING ── */
+function renderLoading(){
+  return`<div class="fade-up" style="text-align:center;padding:60px 20px">
+    <div class="loading-ring"></div>
+    <div class="layer-label" style="color:var(--amber)">◇ GEN AI · CONTENT SYNTHESIS</div>
+    <div class="pulse-anim" style="font-size:14px;color:var(--text3);margin-top:8px" id="loadMsg">Calling Claude API…</div>
+  </div>`;
+}
+
+/* ── RESULTS ── */
+function renderResults(){
+  const gc=state.genContent[state.activeTab];
+  return`<div class="fade-up">
+
+    <!-- GEN AI MODULES -->
+    <div class="card card-amber">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div>
+          <div class="layer-label" style="color:var(--amber)">◇ GEN AI · PERSONALISED LEARNING MODULES${state.isDemo?' <span style="color:var(--violet)">[DEMO DATA]</span>':''}</div>
+          <div class="section-title" style="font-size:16px">Your Learning Content</div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="narrateModule(${state.activeTab})">🔊 Narrate</button>
+          <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="exportPDF()">📄 PDF</button>
+        </div>
+      </div>
+
+      ${state.isDemo?`<div class="sample-note">
+        <span>💡</span>
+        <span>This is <strong>sample content</strong> for demonstration. Add your <strong>Claude API key</strong> above and click <em>Reset</em> to generate a fully personalised AI learning plan tailored exactly to your skill levels and chosen role.</span>
+      </div>`:""}
+
+      <div class="tabs">
+        ${state.genContent.map((g,i)=>`<div class="tab${i===state.activeTab?" active":""}" onclick="switchTab(${i})">${g.skill}</div>`).join("")}
+      </div>
+
+      ${gc?`
+        <div style="font-size:14px;color:var(--text);line-height:1.75;margin-bottom:16px">${gc.summary||""}</div>
+        <div class="key-grid">
+          ${(gc.keyPoints||[]).map(kp=>`<div class="key-item">
+            <span style="color:var(--amber);flex-shrink:0;margin-top:2px">▸</span>
+            <span style="font-size:12px;color:var(--text2);line-height:1.5">${kp}</span>
+          </div>`).join("")}
+        </div>
+        ${gc.proTip?`<div class="pro-tip">
+          <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:2px">💡 PRO TIP  </span>
+          <span style="font-size:13px;color:var(--text2)">${gc.proTip}</span>
+        </div>`:""}
+        <div class="res-chips">
+          ${(gc.resources||[]).map(r=>`<div class="res-chip"><span style="color:var(--amber)">${r.type} </span>${r.title}</div>`).join("")}
+        </div>`:""}
+    </div>
+
+    <!-- QUIZ -->
+    ${state.quiz.length?`<div class="card" style="border-color:rgba(245,158,11,.15)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="layer-label" style="color:var(--amber)">◇ GEN AI · SKILL ASSESSMENT QUIZ${state.isDemo?' <span style="color:var(--violet)">[DEMO]</span>':''}</div>
+        ${state.quizScore.done>0?`<span class="quiz-score" style="color:${state.quizScore.correct/state.quizScore.done>=.7?"var(--green)":"var(--amber)"}">
+          ${state.quizScore.correct}/${state.quizScore.done} · ${Math.round(state.quizScore.correct/state.quizScore.done*100)}%
+        </span>`:""}
+      </div>
+      ${state.quiz.map((q,qi)=>renderQuizCard(q,qi)).join("")}
+    </div>`:""}
+
+    <!-- AGENT SCHEDULE -->
+    ${state.schedule.length?`<div class="card card-green">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div>
+          <div class="layer-label" style="color:var(--green)">◎ AGENT LAYER · AUTONOMOUS LEARNING PLAN</div>
+          <div class="section-title" style="font-size:16px">Weekly Schedule</div>
+        </div>
+        <button class="btn btn-ghost" style="padding:7px 13px;font-size:11px;border-radius:30px" onclick="narrateSchedule()">🔊 Brief Me</button>
+      </div>
+      ${state.schedule.map((s,i)=>`
+        <div class="sched-row" style="animation-delay:${i*150}ms">
+          <div class="sched-week">${s.week}<br><span style="color:var(--text4);font-size:9px">${s.hours}h/wk</span></div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px">${s.skill}</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:6px">🎯 ${s.milestone}</div>
+            <div>${s.sessions.map(sess=>`<span class="session-chip">📅 ${sess}</span>`).join("")}</div>
+          </div>
+        </div>`).join("")}
+    </div>`:""}
+
+    <!-- AGENT LOG -->
+    ${state.agentLog.length?`<div class="card card-green">
+      <div class="layer-label" style="color:var(--green);margin-bottom:14px">◎ AGENT · AUTONOMOUS ACTIONS LOG</div>
+      ${state.agentLog.map((l,i)=>`<div class="log-item" style="animation-delay:${i*80}ms">${l}</div>`).join("")}
+    </div>`:""}
+
+    <!-- SHARE BAR -->
+    <div class="share-bar">
+      <span class="share-label">📤 SHARE</span>
+      <button class="share-btn share-wa" onclick="shareViaWhatsApp()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp
+      </button>
+      <button class="share-btn share-email" onclick="shareViaEmail()">📧 Email</button>
+      <button class="share-btn share-copy" onclick="copyShareText()">📋 Copy</button>
+      <button class="share-btn" style="border-color:rgba(245,158,11,.35);color:var(--amber)" onclick="openShareModal()">👁 Preview</button>
+    </div>
+
+    <!-- ACTION ROW -->
+    <div class="btn-row">
+      <button class="btn btn-gold" onclick="exportPDF()">📄 PDF Report</button>
+      <button class="btn btn-green" onclick="openModal('progressModal');renderProgress()">📊 Progress</button>
+      <button class="btn btn-ghost" onclick="resetAll()">↺ New Assessment</button>
+    </div>
+  </div>`;
+}
+
+function renderQuizCard(q,qi){
+  const answered=state.quizAnswers[qi]!==undefined;
+  return`<div class="quiz-card">
+    <div style="font-size:10px;letter-spacing:2px;color:var(--amber);font-weight:700;margin-bottom:6px">Q${qi+1}</div>
+    <div class="quiz-q">${q.question}</div>
+    ${q.options.map((opt,oi)=>{
+      let cls="opt";
+      if(answered){
+        if(oi===q.correct)cls+=" correct";
+        else if(oi===state.quizAnswers[qi]&&state.quizAnswers[qi]!==q.correct)cls+=" wrong";
+      }
+      return`<button class="${cls}" ${answered?"disabled":""} onclick="answerQuiz(${qi},${oi})">
+        <span style="color:var(--amber);margin-right:8px;font-family:'DM Mono',monospace">${String.fromCharCode(65+oi)}.</span>${opt}
+      </button>`;
+    }).join("")}
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   NARRATION
+══════════════════════════════════════════ */
+function narrateModule(tab){
+  const gc=state.genContent[tab];if(!gc)return;
+  speak(`Learning module for ${gc.skill}. ${gc.summary||""} Key points: ${(gc.keyPoints||[]).join(". ")}. Pro tip: ${gc.proTip||""}`,`📖 ${gc.skill}`);
+}
+function narrateSchedule(){
+  if(!state.schedule.length)return;
+  const text=`Your ${state.isDemo?"sample":"personalised"} learning schedule for ${state.role}. `+
+    state.schedule.map(s=>`${s.week}: Focus on ${s.skill}, ${s.hours} hours per week. Goal: ${s.milestone}.`).join(" ");
+  speak(text,"📅 Agent Schedule");
+}
+
+/* ══════════════════════════════════════════
+   DEMO PROFILE
+══════════════════════════════════════════ */
+function loadDemoProfile(){
+  state.role="AI Product Manager";
+  state.skills={"AI/ML Basics":3,"Product Strategy":6,"Prompt Engineering":2,"Data Literacy":4,"Agile":7,"Stakeholder Mgmt":6};
+  state.isDemo=true;
+  runML(true);
+}
+
+/* ══════════════════════════════════════════
+   ACTIONS
+══════════════════════════════════════════ */
+async function runML(demo=false){
+  const r=ROLES[state.role];
+  state.gaps=r.skills.map((sk,i)=>({
+    skill:sk,current:state.skills[sk]||1,required:r.req[i],
+    gap:clamp(r.req[i]-(state.skills[sk]||1),0,10),demand:DEMAND[sk]||0.8
+  }));
+  state.phase=1;render();
+  await sleep(200);
+  state.gaps.forEach((_,i)=>{
+    setTimeout(()=>{
+      document.getElementById("gr"+i)?.classList.add("show");
+      const fill=document.getElementById("gf"+i);
+      if(fill)fill.style.width=(state.gaps[i].gap*10)+"%";
+    },i*140);
+  });
+  await sleep(state.gaps.length*140+900);
+  state.priorities=state.gaps
+    .map(g=>({...g,score:parseFloat((g.gap*g.demand).toFixed(2)),priority:getPrio(g.gap,g.demand)}))
+    .sort((a,b)=>b.score-a.score);
+  state.phase=2;render();
+  speak(`ML analysis complete for ${state.role}. Top gap: ${state.priorities[0]?.skill}.`,"⬡ ML Analysis");
+}
+
+async function runGenAI(){
+  state.phase=3;state.loading=true;render();
+  const top=state.priorities.filter(p=>p.gap>0).slice(0,3);
+  const hasKey=!!getApiKey();
+
+  if(!hasKey||state.isDemo){
+    // DEMO / No-key mode: use sample data
+    state.isDemo=true;
+    for(let i=0;i<Math.min(top.length,SAMPLE_CONTENT.length);i++){
+      const msg=document.getElementById("loadMsg");
+      if(msg)msg.textContent=`📦 Loading sample content for "${top[i].skill}"… (${i+1}/${top.length})`;
+      await sleep(700);
+      state.genContent.push({...SAMPLE_CONTENT[i],skill:top[i].skill});
+    }
+    const msg=document.getElementById("loadMsg");
+    if(msg)msg.textContent="📦 Loading sample quiz…";
+    await sleep(600);
+    state.quiz=SAMPLE_QUIZ;
+  } else {
+    // AI mode: call Claude API
+    state.isDemo=false;
+    for(let i=0;i<top.length;i++){
+      const msg=document.getElementById("loadMsg");
+      if(msg)msg.textContent=`⚡ Claude generating "${top[i].skill}" module… (${i+1}/${top.length})`;
+      try{
+        const raw=await callClaude(
+          `Create a micro-learning module for a ${state.role} improving "${top[i].skill}" from ${top[i].current} to ${top[i].required}/10.
+Return ONLY JSON: {"skill":"${top[i].skill}","summary":"2-sentence overview","keyPoints":["p1","p2","p3","p4"],"proTip":"one advanced tip","resources":[{"title":"name","type":"Course|Book|Tool|Article"}]}`
+        );
+        state.genContent.push(parseJSON(raw)||SAMPLE_CONTENT[i]||{skill:top[i].skill,summary:"Build this skill to advance.",keyPoints:["Study fundamentals","Build projects","Get certified","Teach others"],proTip:"Apply immediately.",resources:[{title:"Official Docs",type:"Article"}]});
+      }catch(e){
+        state.genContent.push(SAMPLE_CONTENT[Math.min(i,SAMPLE_CONTENT.length-1)]||{skill:top[i].skill,summary:"Build this skill.",keyPoints:["Study","Practice","Certify","Apply"],proTip:"Learn by doing.",resources:[]});
+        showToast("⚠️ API error — showing sample content instead","var(--amber)");
+      }
+    }
+    const msg2=document.getElementById("loadMsg");
+    if(msg2)msg2.textContent="🧠 Building personalised quiz…";
+    try{
+      const quizRaw=await callClaude(
+        `Create 5 multiple-choice questions for a ${state.role} on: ${top.map(t=>t.skill).join(", ")}.
+Return ONLY a JSON array: [{"question":"...","options":["A","B","C","D"],"correct":0}]`
+      );
+      state.quiz=parseJSON(quizRaw)||SAMPLE_QUIZ;
+    }catch{state.quiz=SAMPLE_QUIZ;}
+  }
+
+  // Build schedule
+  const HOURS={Critical:12,High:8,Medium:5,Low:3};
+  state.schedule=top.filter(t=>t.gap>0).map((t,i)=>({
+    week:`Week ${i+1}`,skill:t.skill,hours:HOURS[t.priority]||6,
+    sessions:["Mon 7PM","Wed 7PM","Sat 10AM"],
+    milestone:`Master ${t.skill} core concepts + 2 practice exercises`
+  }));
+
+  state.loading=false;state.phase=4;render();
+  saveProgress();
+
+  const logs=[
+    "📅 Auto-scheduled 3 sessions/week per skill",
+    "📧 Reminder email drafts prepared",
+    "📊 Progress KPIs initialised in tracker",
+    "🔔 Milestone alerts configured",
+    "🤝 Peer accountability pairing queued",
+    "📈 Re-assessment scheduled post-module",
+    `✅ Plan saved${state.isDemo?" (Demo mode — add API key for AI plan)":""}`
+  ];
+  for(const log of logs){await sleep(350);state.agentLog.push(log);render();}
+
+  speak(
+    `Your ${state.isDemo?"sample":"personalised"} learning plan is ready. ${state.isDemo?"This is demo data. Add your Claude API key for a fully personalised plan.":""} ${state.genContent.length} modules generated. ${state.schedule.length} weeks scheduled.`,
+    "◎ Agent · Plan Ready"
+  );
+}
+
+function answerQuiz(qi,oi){
+  if(state.quizAnswers[qi]!==undefined)return;
+  state.quizAnswers[qi]=oi;
+  const correct=oi===state.quiz[qi].correct;
+  state.quizScore={done:state.quizScore.done+1,correct:state.quizScore.correct+(correct?1:0)};
+  saveProgress();render();
+}
+function switchTab(i){state.activeTab=i;render();}
+function resetAll(){
+  stopVoice();
+  state={phase:0,role:state.role,skills:{},gaps:[],priorities:[],genContent:[],quiz:[],schedule:[],agentLog:[],quizAnswers:{},quizScore:{done:0,correct:0},activeTab:0,loading:false,isDemo:false};
+  render();
+}
+
+/* ══════════════════════════════════════════
+   EVENTS
+══════════════════════════════════════════ */
+function attachEvents(){
+  document.querySelectorAll(".role-pill").forEach(btn=>{
+    btn.addEventListener("click",()=>{state.role=btn.dataset.role;initSkills();render();});
+  });
+  document.querySelectorAll(".skill-input").forEach(input=>{
+    input.addEventListener("input",()=>{
+      const sk=input.dataset.skill,v=parseInt(input.value);
+      state.skills[sk]=v;
+      const id=sk.replace(/\W/g,"_");
+      const val=document.getElementById("sv_"+id);
+      const fill=document.getElementById("sf_"+id);
+      if(val)val.innerHTML=`${v}<span style="color:var(--text4)">/10</span>`;
+      if(fill)fill.style.width=(v*10)+"%";
+    });
+  });
+  // Close modals on overlay click
+  document.querySelectorAll(".modal-overlay").forEach(m=>{
+    m.addEventListener("click",e=>{if(e.target===m)m.style.display="none";});
+  });
+}
+
+/* ══════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════ */
+initSkills();
+render();
+</script>
+</body>
+</html>
